@@ -16,6 +16,7 @@ import {
 } from "../lib/api";
 import { parseFrontmatter } from "../lib/frontmatter";
 import { recordRecent } from "../lib/recent";
+import { useScope } from "../lib/scope";
 import { CATEGORY_LABELS, deriveFileLabel, deriveTitleFromFilename } from "../lib/workspace";
 
 function resolveName(category: ApiCategory, nameParam?: string): string {
@@ -44,6 +45,7 @@ export function File() {
   const { segment } = useParams<{ segment: string }>();
   const params = useParams<{ "*": string }>();
   const nameParam = params["*"];
+  const { activeScope } = useScope();
   const [content, setContent] = useState<string>("");
   const [draft, setDraft] = useState<string>("");
   const [title, setTitle] = useState<string>("");
@@ -104,7 +106,7 @@ export function File() {
     setSaveError(null);
     setEditing(false);
 
-    fetchFile(category, name)
+    fetchFile(category, name, activeScope)
       .then((file) => {
         if (!cancelled) {
           setContent(file.content);
@@ -132,7 +134,7 @@ export function File() {
     return () => {
       cancelled = true;
     };
-  }, [segment, nameParam, category, resolvedName, isCategoryIndex]);
+  }, [segment, nameParam, category, resolvedName, isCategoryIndex, activeScope]);
 
   async function handleSave() {
     if (!category || !resolvedName) {
@@ -143,7 +145,7 @@ export function File() {
     setSaveError(null);
 
     try {
-      await saveFile(category, resolvedName, draft);
+      await saveFile(category, resolvedName, draft, activeScope);
       setContent(draft);
       setEditing(false);
     } catch {

@@ -2,16 +2,29 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { FileTree } from "../components/FileTree";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { ScopeSwitcher } from "../components/ScopeSwitcher";
 import { fetchTree, type TreeCategory } from "../lib/api";
+import { useScope } from "../lib/scope";
 
 const navItems = [
   { to: "/", label: "Home" },
+  { to: "/backups", label: "Backups" },
+  { to: "/mcp", label: "MCP Servers" },
   { to: "/settings", label: "Settings" },
+  { to: "/usage", label: "Usage" },
   { to: "/claude-md", label: "CLAUDE.md" },
   { to: "/workspace", label: "Workspace" },
 ];
 
-const FULL_WIDTH_ROUTES = new Set(["/", "/settings", "/claude-md", "/workspace"]);
+const FULL_WIDTH_ROUTES = new Set([
+  "/",
+  "/backups",
+  "/mcp",
+  "/settings",
+  "/usage",
+  "/claude-md",
+  "/workspace",
+]);
 
 /** The file-tree explorer only accompanies category browsers; primary pages own their layout. */
 function isFileRoute(pathname: string): boolean {
@@ -20,6 +33,7 @@ function isFileRoute(pathname: string): boolean {
 
 export function Layout() {
   const { pathname } = useLocation();
+  const { activeScope } = useScope();
   const showTree = isFileRoute(pathname);
   const [categories, setCategories] = useState<TreeCategory[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +42,7 @@ export function Layout() {
   useEffect(() => {
     let cancelled = false;
 
-    fetchTree()
+    fetchTree(activeScope)
       .then((tree) => {
         if (!cancelled) {
           setCategories(tree.categories);
@@ -48,7 +62,7 @@ export function Layout() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeScope]);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-surface text-text">
@@ -91,6 +105,8 @@ export function Layout() {
                 </NavLink>
               ))}
             </nav>
+            <span aria-hidden="true" className="mx-1 h-5 w-px bg-border-subtle" />
+            <ScopeSwitcher />
             <span aria-hidden="true" className="mx-1 h-5 w-px bg-border-subtle" />
             <ThemeToggle />
           </div>

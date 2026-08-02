@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import { getCategoryMeta } from "../lib/categories";
 import { getRecent, type RecentItem } from "../lib/recent";
+import { SetupStatus } from "../components/SetupStatus.js";
 import {
   categoryItemCount,
   flattenFiles,
@@ -323,12 +324,12 @@ export function List() {
       </div>
 
       {hasQuery ? (
-        <section aria-label="Search results">
+        <section aria-label="Search results list">
           {results.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border-subtle bg-surface-raised p-10 text-center">
               <p className="font-medium text-text">No matches</p>
               <p className="mt-1 text-sm text-text-muted">
-                Try a different keyword or widen the scope to “All”.
+                Try a different keyword or widen the scope to All.
               </p>
             </div>
           ) : (
@@ -348,7 +349,8 @@ export function List() {
           )}
         </section>
       ) : (
-        <div className="flex flex-col gap-12">
+        <div className="flex flex-col gap-7">
+          <SetupStatus compact={true} />
           <section aria-labelledby="browse-heading">
             <div className="max-w-2xl">
               <h2

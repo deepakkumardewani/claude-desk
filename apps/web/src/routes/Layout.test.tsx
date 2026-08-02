@@ -2,14 +2,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { expect, test } from "vite-plus/test";
 import { ThemeProvider } from "../lib/theme";
+import { ScopeProvider } from "../lib/scope";
 import { Layout } from "./Layout";
 
 function renderLayout(path: string) {
   return renderToStaticMarkup(
     <ThemeProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <Layout />
-      </MemoryRouter>
+      <ScopeProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <Layout />
+        </MemoryRouter>
+      </ScopeProvider>
     </ThemeProvider>,
   );
 }

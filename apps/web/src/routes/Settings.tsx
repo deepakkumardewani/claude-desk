@@ -3,8 +3,10 @@ import type { ClaudeSettings } from "schema";
 import { SettingsForm } from "../components/SettingsForm";
 import type { SchemaField } from "../components/field-renderers";
 import { fetchSettings, fetchSettingsSchema, updateSettings } from "../lib/api";
+import { useScope } from "../lib/scope";
 
 export function Settings() {
+  const { activeScope } = useScope();
   const [fields, setFields] = useState<SchemaField[]>([]);
   const [values, setValues] = useState<ClaudeSettings>({});
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +17,7 @@ export function Settings() {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([fetchSettingsSchema(), fetchSettings()])
+    Promise.all([fetchSettingsSchema(), fetchSettings(activeScope)])
       .then(([schema, settingsResponse]) => {
         if (cancelled) {
           return;
@@ -37,14 +39,14 @@ export function Settings() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeScope]);
 
   async function handleSubmit(nextValues: ClaudeSettings) {
     setSubmitError(null);
     setSubmitSuccess(null);
 
     try {
-      const response = await updateSettings(nextValues);
+      const response = await updateSettings(nextValues, activeScope);
       setValues(response.settings as ClaudeSettings);
       setSubmitSuccess("Settings saved.");
     } catch {

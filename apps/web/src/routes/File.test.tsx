@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vite-plus/test";
 import * as api from "../lib/api";
+import { ScopeProvider } from "../lib/scope";
 import { File } from "./File";
 
 vi.mock("../lib/api", async (importOriginal) => {
@@ -22,7 +23,11 @@ function renderFileAt(path: string) {
   const router = createMemoryRouter([{ path: "/:segment/*", element: <File /> }], {
     initialEntries: [path],
   });
-  return render(<RouterProvider router={router} />);
+  return render(
+    <ScopeProvider>
+      <RouterProvider router={router} />
+    </ScopeProvider>,
+  );
 }
 
 test("plugin file shows View only badge", async () => {
