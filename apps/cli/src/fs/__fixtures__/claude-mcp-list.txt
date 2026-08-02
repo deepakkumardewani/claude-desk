@@ -1,0 +1,6 @@
+Checking MCP server health…
+
+claude.ai WordPress.com: https://public-api.wordpress.com/wpcom/v2/mcp/v1 - ! Needs authentication
+claude.ai Google Drive: https://drivemcp.googleapis.com/mcp/v1 - ! Needs authentication
+chrome-devtools: npx -y chrome-devtools-mcp@latest - ✔ Connected
+agentmemory: npx -y @agentmemory/mcp - ✔ Connected

@@ -3,13 +3,14 @@ import {
   getSettingsFieldMetadata,
   parseSettings,
   safeParseSettings,
+  type Scope,
 } from "schema";
 import { readFileText } from "../fs/scoped.js";
 import { writeSettings } from "../fs/writeSettings.js";
 
-export async function getSettingsResponse() {
+export async function getSettingsResponse(scope: Scope = "user") {
   try {
-    const raw = await readFileText("settings", "");
+    const raw = await readFileText("settings", "", scope);
     const parsedJson = JSON.parse(raw) as unknown;
     const result = safeParseSettings(parsedJson);
 
@@ -55,8 +56,8 @@ export function parseSettingsForTest(input: unknown) {
   return parseSettings(input);
 }
 
-export async function putSettingsResponse(body: unknown) {
-  const result = await writeSettings(body);
+export async function putSettingsResponse(body: unknown, scope: Scope = "user") {
+  const result = await writeSettings(body, scope);
 
   if (!result.success) {
     return {

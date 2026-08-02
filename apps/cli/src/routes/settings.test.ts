@@ -1,9 +1,10 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { mkdtemp, readFile, rm, writeFile, readdir } from "node:fs/promises";
+import { tmpdir, homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { getSettingsFieldMetadata } from "schema";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { createApp } from "../server.js";
+import { getBackups } from "../fs/backups.js";
 
 let fixtureRoot = "";
 let previousRoot: string | undefined;
@@ -17,6 +18,18 @@ beforeEach(async () => {
 afterEach(async () => {
   process.env.CLAUDE_ROOT = previousRoot;
   await rm(fixtureRoot, { recursive: true, force: true });
+  // Clean up backup directory
+  const backupRoot = resolve(homedir(), ".claude", ".claude-desk-backups");
+  try {
+    const entries = await readdir(backupRoot);
+    for (const entry of entries) {
+      if ((entry as string).includes("settings_json")) {
+        await rm(join(backupRoot, entry), { recursive: true, force: true });
+      }
+    }
+  } catch {
+    // Ignore if backup root doesn't exist
+  }
 });
 
 describe("/api/settings/schema", () => {
@@ -109,10 +122,8 @@ describe("PUT /api/settings", () => {
   });
 
   test("writes valid settings and creates backup", async () => {
-    await writeFile(
-      join(fixtureRoot, "settings.json"),
-      JSON.stringify({ model: "opus", alwaysThinkingEnabled: true }),
-    );
+    const settingsPath = join(fixtureRoot, "settings.json");
+    await writeFile(settingsPath, JSON.stringify({ model: "opus", alwaysThinkingEnabled: true }));
 
     const app = createApp();
     const response = await app.request("/api/settings", {
@@ -129,7 +140,12 @@ describe("PUT /api/settings", () => {
     expect(body.settings.effortLevel).toBe("low");
     expect(body.settings.alwaysThinkingEnabled).toBe(false);
 
-    const backup = JSON.parse(await readFile(join(fixtureRoot, "settings.json.bak"), "utf8")) as {
+    // Check that a backup was created
+    const backups = await getBackups(settingsPath);
+    expect(backups.length).toBeGreaterThan(0);
+
+    // Verify the backup content
+    const backup = JSON.parse(await readFile(backups[0].path, "utf8")) as {
       model: string;
     };
     expect(backup.model).toBe("opus");

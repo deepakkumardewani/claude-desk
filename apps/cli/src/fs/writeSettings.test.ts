@@ -1,9 +1,10 @@
-import { copyFile, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { mkdtemp, readFile, rm, stat, writeFile, readdir } from "node:fs/promises";
+import { tmpdir, homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { safePath } from "./scoped.js";
 import { writeSettings } from "./writeSettings.js";
+import { getBackups } from "./backups.js";
 
 let fixtureRoot = "";
 let previousRoot: string | undefined;
@@ -17,14 +18,22 @@ beforeEach(async () => {
 afterEach(async () => {
   process.env.CLAUDE_ROOT = previousRoot;
   await rm(fixtureRoot, { recursive: true, force: true });
+  // Clean up backup directory
+  const backupRoot = resolve(homedir(), ".claude", ".claude-desk-backups");
+  try {
+    const entries = await readdir(backupRoot);
+    for (const entry of entries) {
+      if ((entry as string).includes("settings_json")) {
+        await rm(join(backupRoot, entry), { recursive: true, force: true });
+      }
+    }
+  } catch {
+    // Ignore if backup root doesn't exist
+  }
 });
 
 function settingsPath() {
   return join(fixtureRoot, "settings.json");
-}
-
-function backupPath() {
-  return `${settingsPath()}.bak`;
 }
 
 describe("writeSettings", () => {
@@ -39,7 +48,6 @@ describe("writeSettings", () => {
 
     const current = await readFile(settingsPath(), "utf8");
     expect(JSON.parse(current)).toEqual({ model: "opus" });
-    await expect(stat(backupPath())).rejects.toThrow();
   });
 
   test("creates backup then updates settings atomically on valid write", async () => {
@@ -50,7 +58,13 @@ describe("writeSettings", () => {
     const result = await writeSettings(next);
     expect(result.success).toBe(true);
 
-    const backup = JSON.parse(await readFile(backupPath(), "utf8")) as typeof initial;
+    // Check that a backup was created
+    const backups = await getBackups(settingsPath());
+    expect(backups.length).toBeGreaterThan(0);
+
+    // Verify the backup content
+    const backupPath = backups[0].path;
+    const backup = JSON.parse(await readFile(backupPath, "utf8")) as typeof initial;
     expect(backup).toEqual(initial);
 
     const updated = JSON.parse(await readFile(settingsPath(), "utf8")) as typeof next;
@@ -63,7 +77,9 @@ describe("writeSettings", () => {
 
     const updated = JSON.parse(await readFile(settingsPath(), "utf8")) as { model: string };
     expect(updated.model).toBe("haiku");
-    await expect(stat(backupPath())).rejects.toThrow();
+    // No backup should be created for a missing file
+    const backups = await getBackups(settingsPath());
+    expect(backups.length).toBe(0);
   });
 
   test("refreshes backup on subsequent writes", async () => {
@@ -71,7 +87,12 @@ describe("writeSettings", () => {
     await writeSettings({ model: "sonnet" });
     await writeSettings({ model: "haiku" });
 
-    const backup = JSON.parse(await readFile(backupPath(), "utf8")) as { model: string };
+    // Get the most recent backup
+    const backups = await getBackups(settingsPath());
+    expect(backups.length).toBeGreaterThanOrEqual(1);
+
+    // The most recent backup should be from the "sonnet" write
+    const backup = JSON.parse(await readFile(backups[0].path, "utf8")) as { model: string };
     expect(backup.model).toBe("sonnet");
   });
 
@@ -89,15 +110,11 @@ describe("writeSettings", () => {
   test("preserves valid file when write fails validation", async () => {
     const valid = { model: "opus", effortLevel: "low" };
     await writeFile(settingsPath(), JSON.stringify(valid, null, 2));
-    await copyFile(settingsPath(), backupPath());
 
     const result = await writeSettings({ effortLevel: "invalid-level" });
     expect(result.success).toBe(false);
 
     const current = JSON.parse(await readFile(settingsPath(), "utf8")) as typeof valid;
     expect(current).toEqual(valid);
-
-    const backup = JSON.parse(await readFile(backupPath(), "utf8")) as typeof valid;
-    expect(backup).toEqual(valid);
   });
 });

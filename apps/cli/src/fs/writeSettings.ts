@@ -1,22 +1,25 @@
-import { copyFile, rename, writeFile } from "node:fs/promises";
-import { safeParseSettings, type ClaudeSettings } from "schema";
+import { rename, writeFile } from "node:fs/promises";
+import { safeParseSettings, type ClaudeSettings, type Scope } from "schema";
 import { safePath } from "./scoped.js";
+import { backupFile } from "./backups.js";
 
 export type WriteSettingsResult =
   | { success: true; settings: ClaudeSettings }
   | { success: false; issues: Array<{ message: string; path?: PropertyKey[] }> };
 
-function settingsPaths() {
-  const settingsPath = safePath("settings");
+function settingsPaths(scope: Scope = "user") {
+  const settingsPath = safePath("settings", "", scope);
   return {
     settingsPath,
-    backupPath: `${settingsPath}.bak`,
     tempPath: `${settingsPath}.tmp.${process.pid}`,
   };
 }
 
 /** Validate, back up, and atomically write settings.json. Only settings.json is writable. */
-export async function writeSettings(input: unknown): Promise<WriteSettingsResult> {
+export async function writeSettings(
+  input: unknown,
+  scope: Scope = "user",
+): Promise<WriteSettingsResult> {
   const parsed = safeParseSettings(input);
   if (!parsed.success) {
     return {
@@ -28,17 +31,11 @@ export async function writeSettings(input: unknown): Promise<WriteSettingsResult
     };
   }
 
-  const { settingsPath, backupPath, tempPath } = settingsPaths();
+  const { settingsPath, tempPath } = settingsPaths(scope);
   const content = `${JSON.stringify(parsed.data, null, 2)}\n`;
 
-  try {
-    await copyFile(settingsPath, backupPath);
-  } catch (error) {
-    const code = error instanceof Error && "code" in error ? String(error.code) : "";
-    if (code !== "ENOENT") {
-      throw error;
-    }
-  }
+  // Back up the current version before writing
+  await backupFile(settingsPath);
 
   await writeFile(tempPath, content, "utf8");
   await rename(tempPath, settingsPath);

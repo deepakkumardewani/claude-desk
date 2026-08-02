@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
+import type { Scope } from "schema";
 
 export const CATEGORY_IDS = [
   "skills",
@@ -30,8 +31,13 @@ export const CATEGORY_META: CategoryMeta[] = [
   { id: "plugins", label: "Plugins", routeSegment: "plugins" },
 ];
 
-function getRoot(): string {
-  return resolve(process.env.CLAUDE_ROOT ?? join(homedir(), ".claude"));
+function getRoot(scope: Scope = "user"): string {
+  if (scope === "user") {
+    return resolve(process.env.CLAUDE_ROOT ?? join(homedir(), ".claude"));
+  } else {
+    // project scope: .claude in current working directory
+    return resolve(process.cwd(), ".claude");
+  }
 }
 
 function getCategories(root: string): Record<Category, string> {
@@ -46,13 +52,29 @@ function getCategories(root: string): Record<Category, string> {
   };
 }
 
+/**
+ * Check if a project scope exists by verifying .claude directory exists.
+ */
+export async function projectScopeExists(): Promise<boolean> {
+  try {
+    const projectRoot = resolve(process.cwd(), ".claude");
+    await stat(projectRoot);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function isCategory(value: string): value is Category {
   return (CATEGORY_IDS as readonly string[]).includes(value);
 }
 
-/** Resolve a request to an absolute path, or throw if it escapes ~/.claude. */
-export function safePath(category: Category, relative = ""): string {
-  const root = getRoot();
+/**
+ * Resolve a request to an absolute path, or throw if it escapes the scope root.
+ * Supports both user and project scopes.
+ */
+export function safePath(category: Category, relative = "", scope: Scope = "user"): string {
+  const root = getRoot(scope);
   const categories = getCategories(root);
   const base = categories[category];
 
@@ -124,10 +146,10 @@ async function walkAllFiles(dir: string, prefix = ""): Promise<string[]> {
   return files.sort();
 }
 
-export async function listCategory(category: Category): Promise<string[]> {
+export async function listCategory(category: Category, scope: Scope = "user"): Promise<string[]> {
   if (category === "claudeMd") {
     try {
-      await stat(safePath(category));
+      await stat(safePath(category, "", scope));
       return ["CLAUDE.md"];
     } catch {
       return [];
@@ -136,7 +158,7 @@ export async function listCategory(category: Category): Promise<string[]> {
 
   if (category === "settings") {
     try {
-      await stat(safePath(category));
+      await stat(safePath(category, "", scope));
       return ["settings.json"];
     } catch {
       return [];
@@ -144,14 +166,18 @@ export async function listCategory(category: Category): Promise<string[]> {
   }
 
   if (category === "plugins") {
-    return walkAllFiles(safePath(category));
+    return walkAllFiles(safePath(category, "", scope));
   }
 
-  return walkMarkdownFiles(safePath(category));
+  return walkMarkdownFiles(safePath(category, "", scope));
 }
 
-export async function readFileText(category: Category, relative: string): Promise<string> {
-  const path = safePath(category, relative);
+export async function readFileText(
+  category: Category,
+  relative: string,
+  scope: Scope = "user",
+): Promise<string> {
+  const path = safePath(category, relative, scope);
   return readFile(path, "utf8");
 }
 
@@ -159,21 +185,22 @@ export async function writeFileText(
   category: Category,
   relative: string,
   content: string,
+  scope: Scope = "user",
 ): Promise<void> {
-  const path = safePath(category, relative);
+  const path = safePath(category, relative, scope);
   const dir = path.substring(0, path.lastIndexOf("/"));
   await mkdir(dir, { recursive: true });
   await writeFile(path, content, "utf8");
 }
 
-export async function listAllCategories(): Promise<
-  Array<{ category: Category; label: string; files: string[] }>
-> {
+export async function listAllCategories(
+  scope: Scope = "user",
+): Promise<Array<{ category: Category; label: string; files: string[] }>> {
   const results = await Promise.all(
     CATEGORY_META.map(async ({ id, label }) => ({
       category: id,
       label,
-      files: await listCategory(id),
+      files: await listCategory(id, scope),
     })),
   );
   return results;

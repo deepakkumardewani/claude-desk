@@ -1,6 +1,12 @@
-import { isCategory, readFileText, writeFileText } from "../fs/scoped.js";
+import { isCategory, readFileText, writeFileText, safePath } from "../fs/scoped.js";
+import { backupFile } from "../fs/backups.js";
+import type { Scope } from "schema";
 
-export async function getFileResponse(categoryParam: string, nameParam: string) {
+export async function getFileResponse(
+  categoryParam: string,
+  nameParam: string,
+  scope: Scope = "user",
+) {
   if (!isCategory(categoryParam)) {
     return { status: 400 as const, body: { error: "invalid category" } };
   }
@@ -12,7 +18,7 @@ export async function getFileResponse(categoryParam: string, nameParam: string) 
 
   try {
     const relative = categoryParam === "claudeMd" || categoryParam === "settings" ? "" : name;
-    const content = await readFileText(categoryParam, relative);
+    const content = await readFileText(categoryParam, relative, scope);
     return {
       status: 200 as const,
       body: {
@@ -30,7 +36,12 @@ export async function getFileResponse(categoryParam: string, nameParam: string) 
   }
 }
 
-export async function postFileResponse(categoryParam: string, nameParam: string, content: string) {
+export async function postFileResponse(
+  categoryParam: string,
+  nameParam: string,
+  content: string,
+  scope: Scope = "user",
+) {
   if (!isCategory(categoryParam)) {
     return { status: 400 as const, body: { error: "invalid category" } };
   }
@@ -50,7 +61,12 @@ export async function postFileResponse(categoryParam: string, nameParam: string,
 
   try {
     const relative = categoryParam === "claudeMd" ? "" : name;
-    await writeFileText(categoryParam, relative, content);
+    const filePath = safePath(categoryParam, relative, scope);
+
+    // Back up the current version before writing
+    await backupFile(filePath);
+
+    await writeFileText(categoryParam, relative, content, scope);
     return {
       status: 200 as const,
       body: {
