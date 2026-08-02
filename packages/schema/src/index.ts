@@ -166,6 +166,34 @@ export function safeParseSettings(input: unknown) {
   return claudeSettingsSchema.safeParse(input);
 }
 
+// Backup types
+export const backupSchema = z.object({
+  id: z.string(),
+  path: z.string(),
+  timestamp: z.string(),
+  size: z.number(),
+});
+
+export type Backup = z.infer<typeof backupSchema>;
+
+export const backupsListResponseSchema = z.object({
+  files: z.array(
+    z.object({
+      path: z.string(),
+      backups: z.array(backupSchema),
+    }),
+  ),
+});
+
+export type BackupsListResponse = z.infer<typeof backupsListResponseSchema>;
+
+export const restoreBackupRequestSchema = z.object({
+  backupId: z.string(),
+  originalPath: z.string(),
+});
+
+export type RestoreBackupRequest = z.infer<typeof restoreBackupRequestSchema>;
+
 export {
   getSettingsFieldMetadata,
   SETTINGS_GROUP_ORDER,
@@ -173,3 +201,70 @@ export {
   type FieldMetadata,
   type SettingsGroup,
 } from "./metadata.js";
+
+export {
+  mergeSettings,
+  getSettingScope,
+  type Scope,
+  type EffectiveValue,
+  type MergedSettings,
+} from "./scope.js";
+
+export {
+  stdioTransportSchema,
+  httpTransportSchema,
+  sseTransportSchema,
+  mcpServerSchema,
+  mcpConfigSchema,
+  mcpServerResponseSchema,
+  mcpListResponseSchema,
+  mcpAddRequestSchema,
+  mcpRemoveRequestSchema,
+  mcpHealthResponseSchema,
+  mcpHealthCheckResponseSchema,
+  parseMcpConfig,
+  safeParseMcpConfig,
+  type StdioTransport,
+  type HttpTransport,
+  type SseTransport,
+  type McpServer,
+  type McpConfig,
+  type McpServerResponse,
+  type McpListResponse,
+  type McpAddRequest,
+  type McpRemoveRequest,
+  type McpHealthResponse,
+  type McpHealthCheckResponse,
+} from "./mcp.js";
+
+export {
+  catalogCategorySchema,
+  catalogEnvVarSchema,
+  catalogEntrySchema,
+  catalogSchema,
+  CATALOG_CATEGORIES,
+  type CatalogCategory,
+  type CatalogEnvVar,
+  type CatalogEntry,
+  type Catalog,
+} from "./mcpCatalog.js";
+
+export { CATALOG } from "./catalog.js";
+
+// Status check types
+export const statusItemSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  status: z.enum(["ok", "warn", "missing"]),
+  message: z.string(),
+  fixRoute: z.string().optional(),
+});
+
+export type StatusItem = z.infer<typeof statusItemSchema>;
+
+export const statusResponseSchema = z.object({
+  allOk: z.boolean(),
+  items: z.array(statusItemSchema),
+});
+
+export type StatusResponse = z.infer<typeof statusResponseSchema>;
