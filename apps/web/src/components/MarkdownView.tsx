@@ -96,7 +96,7 @@ export function MarkdownView({ content }: MarkdownViewProps) {
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="mt-10 scroll-mt-6 text-xl font-semibold tracking-tight text-text">
+            <h2 className="mt-9 scroll-mt-6 font-display text-xl font-semibold tracking-tight text-text">
               {children}
             </h2>
           ),
@@ -106,15 +106,15 @@ export function MarkdownView({ content }: MarkdownViewProps) {
           h4: ({ children }) => (
             <h4 className="mt-6 text-base font-semibold text-text">{children}</h4>
           ),
-          p: ({ children }) => <p className="mt-4 leading-[1.75] text-text-muted">{children}</p>,
+          p: ({ children }) => <p className="mt-4 leading-[1.75] text-text">{children}</p>,
           strong: ({ children }) => <strong className="font-semibold text-text">{children}</strong>,
           ul: ({ children }) => (
-            <ul className="mt-4 list-disc space-y-2 pl-6 text-text-muted marker:text-accent">
+            <ul className="mt-4 list-disc space-y-2 pl-6 text-text marker:text-accent">
               {children}
             </ul>
           ),
           ol: ({ children }) => (
-            <ol className="mt-4 list-decimal space-y-2 pl-6 text-text-muted marker:text-accent">
+            <ol className="mt-4 list-decimal space-y-2 pl-6 text-text marker:text-accent">
               {children}
             </ol>
           ),
@@ -130,7 +130,7 @@ export function MarkdownView({ content }: MarkdownViewProps) {
               <li
                 className={
                   hasTask
-                    ? "list-none -ml-6 flex items-start gap-2 leading-[1.75] text-text-muted"
+                    ? "list-none -ml-6 flex items-start gap-2 leading-[1.75] text-text"
                     : "leading-[1.75]"
                 }
               >

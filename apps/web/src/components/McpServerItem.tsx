@@ -1,25 +1,31 @@
+import { Link } from "react-router-dom";
 import type { McpServerResponse } from "schema";
+import { useWorkspace } from "../lib/scope";
+import { pathForWorkspace } from "../lib/workspaceState";
 
 interface McpServerItemProps {
   server: McpServerResponse;
   isRemoving: boolean;
   onRemove: () => void;
+  onCancelRemove: () => void;
 }
 
-function healthDotClass(health: McpServerResponse["health"], error?: string): string {
-  if (error?.toLowerCase().includes("authentication")) {
-    return "bg-[color:var(--cat-claudemd)]";
-  }
-  if (health === "connected") return "bg-success";
-  if (health === "failed") return "bg-danger";
+function isAuthIssue(error?: string): boolean {
+  return Boolean(error?.toLowerCase().includes("authentication"));
+}
+
+function healthDotClass(server: McpServerResponse): string {
+  if (isAuthIssue(server.error)) return "bg-[color:var(--warning)]";
+  if (server.health === "connected") return "bg-success";
+  if (server.health === "failed") return "bg-danger";
   return "bg-text-muted";
 }
 
 function healthLabel(server: McpServerResponse): string {
-  if (server.error?.toLowerCase().includes("authentication")) {
-    return "Needs authentication";
-  }
-  return server.health ?? "unknown";
+  if (isAuthIssue(server.error)) return "Needs authentication";
+  if (server.health === "connected") return "Connected";
+  if (server.health === "failed") return "Failed";
+  return "Unknown";
 }
 
 function transportSummary(server: McpServerResponse): string {
@@ -29,83 +35,82 @@ function transportSummary(server: McpServerResponse): string {
   return "Unknown";
 }
 
-export function McpServerItem({ server, isRemoving, onRemove }: McpServerItemProps) {
+export function McpServerItem({
+  server,
+  isRemoving,
+  onRemove,
+  onCancelRemove,
+}: McpServerItemProps) {
+  const { workspace } = useWorkspace();
   const isPlugin = server.origin === "plugin" || server.editable === false;
   const canRemove = !isPlugin && server.editable !== false;
+  const authIssue = isAuthIssue(server.error);
 
   return (
     <div
-      className={`flex items-center justify-between gap-3 rounded-xl border p-4 shadow-sm ${
-        isPlugin
-          ? "border-border-subtle bg-surface-soft/80"
-          : "border-accent/25 bg-surface-raised ring-1 ring-accent/10"
-      }`}
+      className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 px-4 py-3.5"
       data-origin={server.origin ?? "file"}
       data-editable={canRemove ? "true" : "false"}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <div
-          className={`h-2.5 w-2.5 shrink-0 rounded-full ${healthDotClass(server.health, server.error)}`}
-          title={healthLabel(server)}
-        />
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-text">{server.name}</span>
-            <span className="rounded-full border border-border-subtle px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-text-muted">
-              {server.scope}
-            </span>
-            {isPlugin ? (
-              <span
-                className="rounded-full border border-[color:var(--cat-plugins)]/40 bg-[color:var(--cat-plugins)]/15 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-text"
-                data-testid="plugin-badge"
-              >
-                Plugin
-              </span>
-            ) : (
-              <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-text">
-                Installed
-              </span>
-            )}
-          </div>
-          <div className="mt-0.5 truncate font-mono text-xs text-text-muted">
-            {server.transport.type.toUpperCase()} • {transportSummary(server)}
-          </div>
-          {server.error ? <div className="mt-1 text-xs text-danger">{server.error}</div> : null}
-          {isPlugin ? (
-            <div className="mt-1 text-xs text-text-muted">
-              Managed by a Claude plugin — view only
-            </div>
-          ) : null}
+      <div className={`size-2.5 shrink-0 rounded-full ${healthDotClass(server)}`}>
+        <span className="sr-only">{healthLabel(server)}</span>
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-text">{server.name}</span>
+          <span className="rounded-full border border-border-subtle px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-text-muted">
+            {server.scope}
+          </span>
         </div>
+        <div className="mt-0.5 truncate font-mono text-xs text-text-muted">
+          {server.transport.type.toUpperCase()} • {transportSummary(server)}
+        </div>
+        {authIssue ? (
+          <div className="mt-1 text-xs text-warning">
+            Needs authentication —{" "}
+            <Link
+              to={pathForWorkspace(workspace, "settings")}
+              className="underline-offset-2 hover:underline"
+            >
+              check setup
+            </Link>
+          </div>
+        ) : server.error ? (
+          <div className="mt-1 text-xs text-danger">{server.error}</div>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
         {canRemove ? (
-          <>
-            {isRemoving ? <span className="text-xs text-text-muted">Remove?</span> : null}
+          isRemoving ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-muted">Remove?</span>
+              <button
+                type="button"
+                onClick={onRemove}
+                className="rounded-lg bg-danger px-3 py-1.5 text-sm text-white transition hover:opacity-90"
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                onClick={onCancelRemove}
+                className="rounded-lg px-3 py-1.5 text-sm text-text-muted transition hover:bg-surface-soft"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
               onClick={onRemove}
-              className={`rounded-lg px-3 py-1.5 text-sm transition ${
-                isRemoving
-                  ? "bg-danger text-white hover:opacity-90"
-                  : "text-danger hover:bg-danger/10"
-              }`}
+              className="rounded-lg px-3 py-1.5 text-sm text-danger opacity-0 transition hover:bg-danger/10 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
             >
-              {isRemoving ? "Confirm" : "Remove"}
+              Remove
             </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            disabled
-            title="Plugin-origin servers cannot be edited here"
-            className="cursor-not-allowed rounded-lg px-3 py-1.5 text-sm text-text-muted opacity-50"
-            aria-disabled="true"
-          >
-            Remove
-          </button>
-        )}
+          )
+        ) : null}
       </div>
     </div>
   );

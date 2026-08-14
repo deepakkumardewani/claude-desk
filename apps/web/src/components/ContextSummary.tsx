@@ -11,6 +11,7 @@ type Props = {
   percentage: number;
   model: string;
   isEstimated: boolean;
+  workspaceLabel: string;
   onRefresh: () => void;
   refreshing: boolean;
   staleError?: { title: string; body: string } | null;
@@ -27,6 +28,7 @@ export function ContextSummary({
   percentage,
   model,
   isEstimated,
+  workspaceLabel,
   onRefresh,
   refreshing,
   staleError = null,
@@ -52,91 +54,79 @@ export function ContextSummary({
       percentage: entry.percentage,
       color: getCategoryColor(entry.name),
       items: entry.items,
+      groups: entry.groups,
     }));
   }, [breakdown]);
 
   return (
-    <div className="animate-fade-in flex flex-col gap-6">
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <div className="animate-fade-in flex flex-col">
+      <header className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-baseline gap-3">
             <h2 className="font-display text-2xl font-semibold tracking-tight text-text">
-              Workspace
+              Context
             </h2>
-            <p className="font-mono text-sm text-text-muted">context inspector</p>
+            <p className="truncate text-sm text-text-muted">{workspaceLabel}</p>
+            {refreshing ? (
+              <span className="text-sm text-text-muted" aria-live="polite">
+                Refreshing…
+              </span>
+            ) : null}
           </div>
-
-          <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
-            <div className="flex items-baseline gap-2.5">
-              <span className="font-display text-4xl font-bold tracking-tight text-text tabular-nums">
-                {total.toLocaleString()}
-              </span>
-              <span className="pb-1 text-sm text-text-muted">tokens in context</span>
-            </div>
-
-            <p className="pb-1 text-sm text-text-muted">
-              <span className="text-text">{model}</span>
-              <span className="mx-2 text-border-subtle" aria-hidden="true">
-                ·
-              </span>
-              <span>
-                {formatK(total)} / {formatK(maxTokens)} ({percentage}%)
-              </span>
-              {freeTokens !== null ? (
-                <>
-                  <span className="mx-2 text-border-subtle" aria-hidden="true">
-                    ·
-                  </span>
-                  <span>{formatK(freeTokens)} free</span>
-                </>
-              ) : null}
-              {isEstimated ? (
-                <>
-                  <span className="mx-2 text-border-subtle" aria-hidden="true">
-                    ·
-                  </span>
-                  <span>Estimated</span>
-                </>
-              ) : null}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            aria-label="Refresh context summary"
+            className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-soft hover:text-text disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <svg
+              aria-hidden="true"
+              className={`size-4 ${refreshing ? "animate-spin" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={refreshing}
-          aria-label="Refresh context summary"
-          className="grid size-9 shrink-0 place-items-center rounded-lg text-text-muted transition-colors hover:bg-surface-soft hover:text-text disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <svg
-            aria-hidden="true"
-            className={`size-4 ${refreshing ? "animate-spin" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+            <p>
+              <span className="font-medium tabular-nums text-text">{total.toLocaleString()}</span>
+              <span className="text-text-muted"> tokens</span>
+            </p>
+            <p className="text-text">{model}</p>
+            <p className="tabular-nums text-text-muted">
+              {formatK(total)} / {formatK(maxTokens)} ({percentage}%)
+            </p>
+            {freeTokens !== null ? (
+              <p className="tabular-nums text-text-muted">{formatK(freeTokens)} free</p>
+            ) : null}
+            {isEstimated ? <p className="text-text-muted">Estimated</p> : null}
+          </div>
+          <StackedUsageBar total={maxTokens} categories={stackedCategories} height="h-2.5" />
+        </div>
       </header>
 
       {staleError ? (
         <div
           role="status"
-          className="rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 text-sm text-text-muted"
+          className="mt-6 rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 text-sm text-text-muted"
         >
           <span className="font-medium text-text">{staleError.title}.</span> Showing the last
           successful load. {staleError.body}
         </div>
       ) : null}
 
-      <StackedUsageBar total={maxTokens} categories={stackedCategories} height="h-4" />
-
-      <CategorySummaryTable categories={tableCategories} />
+      <div className="mt-10">
+        <CategorySummaryTable categories={tableCategories} />
+      </div>
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import type { Catalog, CatalogEntry } from "schema";
+import { apiFetch } from "./sessionApi";
 
 /**
  * Fetch the curated MCP catalog from the API endpoint.
  */
 export async function fetchCatalog(): Promise<Catalog> {
-  const response = await fetch("/api/mcp/catalog");
+  const response = await apiFetch("/api/mcp/catalog");
   if (!response.ok) {
     throw new Error(`Failed to fetch catalog: ${response.status}`);
   }
@@ -100,21 +101,19 @@ export function entryToTransport(
     args: [...entry.args],
   };
 
-  // Build env object only if there are env values
-  if (Object.keys(envValues).length > 0) {
-    const env: Record<string, string> = {};
-    for (const envVar of entry.env) {
-      const value = envValues[envVar.key];
-      if (value !== undefined) {
-        env[envVar.key] = value;
-      }
-    }
-    if (Object.keys(env).length > 0) {
-      return { ...transport, env };
-    }
+  if (entry.env.length === 0) {
+    return transport;
   }
 
-  return transport;
+  // Every declared env var is emitted: a literal value if the user pasted one,
+  // otherwise a `${KEY}` placeholder that reads from the shell environment.
+  const env: Record<string, string> = {};
+  for (const envVar of entry.env) {
+    const value = envValues[envVar.key];
+    env[envVar.key] = value ? value : `\${${envVar.key}}`;
+  }
+
+  return { ...transport, env };
 }
 
 /**

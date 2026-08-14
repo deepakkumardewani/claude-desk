@@ -16,10 +16,10 @@ import {
   isDirectCategory,
   searchFiles,
   splitPathLabel,
-  summarizeConfig,
-  type ConfigStat,
   type WorkspaceFile,
 } from "../lib/workspace";
+import { useWorkspace } from "../lib/scope";
+import { workspaceBasePath, type Workspace } from "../lib/workspaceState";
 import type { ClaudeSettings } from "schema";
 
 const SEARCH_RESULT_LIMIT = 40;
@@ -79,26 +79,66 @@ function FileRow({ file }: { file: WorkspaceFile }) {
   );
 }
 
-function StatRow({ stat }: { stat: ConfigStat }) {
+function homeCopy(kind: Workspace["kind"]): { title: string; subtitle: string } {
+  if (kind === "project") {
+    return {
+      title: "This project",
+      subtitle: "Search jumps to a file; Browse opens a category in the sidebar.",
+    };
+  }
+  return {
+    title: "Your user config",
+    subtitle: "~/.claude applies across projects; search or Browse to jump in.",
+  };
+}
+
+function BrowseRow({
+  href,
+  label,
+  purpose,
+  colorToken,
+  count,
+}: {
+  href: string;
+  label: string;
+  purpose: string;
+  colorToken: string;
+  count: number;
+}) {
+  const empty = count === 0;
   return (
-    <div className="flex items-baseline justify-between gap-4 py-2.5">
-      <span className="text-sm text-text-muted">{stat.label}</span>
-      <span className="min-w-0 truncate text-right font-mono text-sm font-medium text-text">
-        {stat.value}
-        {stat.hint ? <span className="ml-1 font-sans text-text-muted">{stat.hint}</span> : null}
+    <Link
+      to={href}
+      className="group -mx-3 flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+    >
+      <span className={`mt-2 size-2 shrink-0 rounded-full ${colorToken}`} aria-hidden="true" />
+      <span className="min-w-0">
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span
+            className={`truncate text-base font-medium group-hover:text-accent ${empty ? "text-text-muted" : "text-text"}`}
+          >
+            {label}
+          </span>
+          <span
+            className={`shrink-0 font-mono text-xs tabular-nums ${empty ? "text-text-muted" : "text-text"}`}
+          >
+            {count.toLocaleString()}
+          </span>
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-text-muted">{purpose}</span>
       </span>
-    </div>
+    </Link>
   );
 }
 
-function categoryHref(category: ApiCategory): string {
+function categoryHref(category: ApiCategory, basePath: string): string {
   if (category === "settings") {
-    return "/settings";
+    return `${basePath}/settings`;
   }
   if (category === "claudeMd") {
-    return "/claude-md";
+    return `${basePath}/claude-md`;
   }
-  return `/${categoryToRoute(category)}`;
+  return `${basePath}/${categoryToRoute(category)}`;
 }
 
 function Bone({ className }: { className: string }) {
@@ -107,76 +147,39 @@ function Bone({ className }: { className: string }) {
 
 function LoadingSkeleton() {
   return (
-    <div
-      aria-busy="true"
-      aria-label="Loading your workspace"
-      className="mx-auto max-w-5xl space-y-7"
-    >
+    <div aria-busy="true" aria-label="Loading your workspace" className="mx-auto max-w-5xl">
       <header className="max-w-2xl space-y-3">
         <Bone className="h-9 w-72 sm:w-96" />
         <Bone className="h-4 w-full max-w-md" />
       </header>
 
-      <Bone className="h-14 w-full rounded-xl" />
+      <Bone className="mt-4 h-14 w-full rounded-xl" />
 
-      <div className="flex flex-col gap-12">
-        <section className="space-y-4">
-          <div className="space-y-2">
-            <Bone className="h-3 w-20" />
-            <Bone className="h-4 w-64" />
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            {Array.from({ length: 5 }, (_, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-raised px-3 py-2"
-              >
-                <Bone className="size-2 shrink-0 rounded-full" />
-                <Bone className="h-3.5 flex-1" />
-                <Bone className="h-3 w-6" />
+      <section className="mt-12">
+        <Bone className="h-6 w-24" />
+        <div className="mt-4 grid gap-x-12 sm:grid-cols-2">
+          {Array.from({ length: 5 }, (_, index) => (
+            <div key={index} className="flex items-start gap-3 px-3 py-2.5">
+              <Bone className="mt-2 size-2 shrink-0 rounded-full" />
+              <div className="min-w-0 space-y-1.5">
+                <div className="flex items-baseline gap-2">
+                  <Bone className="h-4 w-24" />
+                  <Bone className="h-3 w-5" />
+                </div>
+                <Bone className="h-3 w-44" />
               </div>
-            ))}
-          </div>
-        </section>
-
-        <div className="grid gap-10 lg:grid-cols-2">
-          <section className="space-y-3">
-            <Bone className="h-3 w-32" />
-            <div className="divide-y divide-border-subtle border-t border-border-subtle">
-              {[0, 1].map((row) => (
-                <div key={row} className="flex items-center gap-3 py-3">
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <Bone className="h-4 w-40" />
-                    <Bone className="h-3 w-56" />
-                  </div>
-                  <Bone className="h-5 w-14 rounded-full" />
-                </div>
-              ))}
             </div>
-          </section>
-
-          <aside className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Bone className="h-3 w-28" />
-              <Bone className="h-3 w-10" />
-            </div>
-            <div className="divide-y divide-border-subtle border-t border-border-subtle">
-              {[0, 1, 2, 3].map((row) => (
-                <div key={row} className="flex items-center justify-between gap-4 py-3">
-                  <Bone className="h-4 w-20" />
-                  <Bone className="h-4 w-16" />
-                </div>
-              ))}
-            </div>
-          </aside>
+          ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
 
 export function List() {
   const navigate = useNavigate();
+  const { workspace, activeScope, projectDir } = useWorkspace();
+  const basePath = workspaceBasePath(workspace);
   const [categories, setCategories] = useState<TreeCategory[]>([]);
   const [settings, setSettings] = useState<ClaudeSettings>({});
   const [recent, setRecent] = useState<RecentItem[]>([]);
@@ -189,7 +192,10 @@ export function List() {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([fetchTree(), fetchSettings()])
+    Promise.all([
+      fetchTree(activeScope, projectDir ?? undefined),
+      fetchSettings(activeScope, projectDir ?? undefined),
+    ])
       .then(([tree, settingsResponse]) => {
         if (cancelled) {
           return;
@@ -211,7 +217,7 @@ export function List() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeScope, projectDir]);
 
   useEffect(() => {
     setRecent(getRecent());
@@ -239,10 +245,17 @@ export function List() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const files = useMemo(() => flattenFiles(categories), [categories]);
+  const files = useMemo(
+    () =>
+      flattenFiles(categories).map((file) => ({
+        ...file,
+        href: `${basePath}${file.href}`,
+      })),
+    [categories, basePath],
+  );
   const hasQuery = query.trim().length > 0;
   const results = useMemo(() => searchFiles(files, query, scope), [files, query, scope]);
-  const stats = useMemo(() => summarizeConfig(settings), [settings]);
+  const copy = homeCopy(workspace.kind);
   const scopes = useMemo<Array<{ id: ApiCategory | null; label: string }>>(
     () => [
       { id: null, label: "All" },
@@ -262,17 +275,15 @@ export function List() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-7">
+    <div className="mx-auto max-w-5xl">
       <header className="max-w-2xl">
         <h1 className="font-display text-3xl font-bold tracking-tight text-text sm:text-4xl">
-          Your Claude workspace
+          {copy.title}
         </h1>
-        <p className="mt-2 text-base text-text-muted">
-          Search to jump anywhere, or open a category to browse in the sidebar.
-        </p>
+        <p className="mt-2 text-base text-text-muted">{copy.subtitle}</p>
       </header>
 
-      <div>
+      <div className="mt-4">
         <div className="relative">
           <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center">
             <SearchIcon />
@@ -324,7 +335,7 @@ export function List() {
       </div>
 
       {hasQuery ? (
-        <section aria-label="Search results list">
+        <section className="mt-6" aria-label="Search results list">
           {results.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border-subtle bg-surface-raised p-10 text-center">
               <p className="font-medium text-text">No matches</p>
@@ -349,114 +360,63 @@ export function List() {
           )}
         </section>
       ) : (
-        <div className="flex flex-col gap-7">
-          <SetupStatus compact={true} />
-          <section aria-labelledby="browse-heading">
-            <div className="max-w-2xl">
-              <h2
-                id="browse-heading"
-                className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted"
-              >
-                Browse
-              </h2>
-              <p className="mt-1.5 text-sm text-text-muted">
-                Open a category in the file explorer.
-              </p>
-            </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div>
+          <SetupStatus />
+          <section className="mt-12" aria-labelledby="browse-heading">
+            <h2 id="browse-heading" className="font-display text-xl font-semibold text-text">
+              Browse
+            </h2>
+            <div className="mt-4 grid gap-x-12 sm:grid-cols-2">
               {categories
                 .filter((category) => !isDirectCategory(category.category))
                 .map((category) => {
-                  const { colorToken } = getCategoryMeta(category.category);
-                  const count = categoryItemCount(category, settings);
+                  const meta = getCategoryMeta(category.category);
                   return (
-                    <Link
+                    <BrowseRow
                       key={category.category}
-                      to={categoryHref(category.category)}
-                      className="group flex min-w-0 items-center gap-2 rounded-lg border border-border-subtle bg-surface-raised px-3 py-2 text-left transition-colors hover:border-accent/35 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-                    >
-                      <span
-                        className={`size-2 shrink-0 rounded-full ${colorToken}`}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-text">
-                        {category.label}
-                      </span>
-                      <span className="shrink-0 font-mono text-xs tabular-nums text-text-muted">
-                        {count.toLocaleString()}
-                      </span>
-                      <span className="shrink-0 opacity-40 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                        <ArrowIcon />
-                      </span>
-                    </Link>
+                      href={categoryHref(category.category, basePath)}
+                      label={category.label}
+                      purpose={meta.purpose}
+                      colorToken={meta.colorToken}
+                      count={categoryItemCount(category, settings)}
+                    />
                   );
                 })}
             </div>
           </section>
 
-          <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
-            {recent.length > 0 ? (
-              <section aria-labelledby="recent-heading">
-                <h2
-                  id="recent-heading"
-                  className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted"
-                >
-                  Recently viewed
-                </h2>
-                <div className="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
-                  {recent.map((item) => {
-                    const { prefix, leaf } = splitPathLabel(item.label);
-                    return (
-                      <Link
-                        key={item.href}
-                        to={item.href}
-                        className="group flex items-center gap-3 py-3 transition-colors hover:text-accent focus-visible:outline-none"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium text-text group-hover:text-accent">
-                            {leaf}
+          {recent.length > 0 ? (
+            <section className="mt-12" aria-labelledby="recent-heading">
+              <h2 id="recent-heading" className="font-display text-xl font-semibold text-text">
+                Recently viewed
+              </h2>
+              <div className="mt-2 divide-y divide-border-subtle">
+                {recent.map((item) => {
+                  const { prefix, leaf } = splitPathLabel(item.label);
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      className="group flex items-center gap-3 py-2 transition-colors hover:text-accent focus-visible:outline-none"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-text group-hover:text-accent">
+                          {leaf}
+                        </span>
+                        {prefix ? (
+                          <span className="block truncate font-mono text-xs text-text-muted">
+                            {prefix}
                           </span>
-                          {prefix ? (
-                            <span className="block truncate font-mono text-xs text-text-muted">
-                              {prefix}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="shrink-0 text-xs text-text-muted">
-                          {item.categoryLabel}
-                        </span>
-                        <ArrowIcon />
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : (
-              <div className="hidden lg:block" aria-hidden="true" />
-            )}
-
-            <aside aria-labelledby="config-heading">
-              <div className="flex items-center justify-between gap-4">
-                <h2
-                  id="config-heading"
-                  className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted"
-                >
-                  Current config
-                </h2>
-                <Link
-                  to="/settings"
-                  className="text-xs font-medium text-accent transition hover:opacity-80"
-                >
-                  Edit →
-                </Link>
+                        ) : null}
+                      </span>
+                      <span className="shrink-0 text-xs text-text-muted">{item.categoryLabel}</span>
+                      <ArrowIcon />
+                    </Link>
+                  );
+                })}
               </div>
-              <div className="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
-                {stats.map((stat) => (
-                  <StatRow key={stat.label} stat={stat} />
-                ))}
-              </div>
-            </aside>
-          </div>
+            </section>
+          ) : null}
         </div>
       )}
     </div>

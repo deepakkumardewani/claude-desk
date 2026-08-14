@@ -16,8 +16,9 @@ import {
 } from "../lib/api";
 import { parseFrontmatter } from "../lib/frontmatter";
 import { recordRecent } from "../lib/recent";
-import { useScope } from "../lib/scope";
+import { useWorkspace } from "../lib/scope";
 import { CATEGORY_LABELS, deriveFileLabel, deriveTitleFromFilename } from "../lib/workspace";
+import { workspaceBasePath } from "../lib/workspaceState";
 
 function resolveName(category: ApiCategory, nameParam?: string): string {
   if (category === "claudeMd") {
@@ -45,7 +46,7 @@ export function File() {
   const { segment } = useParams<{ segment: string }>();
   const params = useParams<{ "*": string }>();
   const nameParam = params["*"];
-  const { activeScope } = useScope();
+  const { workspace, activeScope, projectDir } = useWorkspace();
   const [content, setContent] = useState<string>("");
   const [draft, setDraft] = useState<string>("");
   const [title, setTitle] = useState<string>("");
@@ -106,7 +107,7 @@ export function File() {
     setSaveError(null);
     setEditing(false);
 
-    fetchFile(category, name, activeScope)
+    fetchFile(category, name, activeScope, projectDir ?? undefined)
       .then((file) => {
         if (!cancelled) {
           setContent(file.content);
@@ -114,7 +115,7 @@ export function File() {
           setTitle(file.name);
           const isFileCategory = category === "claudeMd" || category === "settings";
           recordRecent({
-            href: fileHref(category, file.name),
+            href: `${workspaceBasePath(workspace)}${fileHref(category, file.name)}`,
             label: isFileCategory ? CATEGORY_LABELS[category] : deriveFileLabel(file.name),
             categoryLabel: CATEGORY_LABELS[category],
           });
@@ -134,7 +135,16 @@ export function File() {
     return () => {
       cancelled = true;
     };
-  }, [segment, nameParam, category, resolvedName, isCategoryIndex, activeScope]);
+  }, [
+    segment,
+    nameParam,
+    category,
+    resolvedName,
+    isCategoryIndex,
+    activeScope,
+    projectDir,
+    workspace,
+  ]);
 
   async function handleSave() {
     if (!category || !resolvedName) {
@@ -145,7 +155,7 @@ export function File() {
     setSaveError(null);
 
     try {
-      await saveFile(category, resolvedName, draft, activeScope);
+      await saveFile(category, resolvedName, draft, activeScope, projectDir ?? undefined);
       setContent(draft);
       setEditing(false);
     } catch {
@@ -229,6 +239,8 @@ export function File() {
     </>
   );
 
+  const isClaudeMd = category === "claudeMd";
+
   if (editing) {
     return (
       <>
@@ -270,6 +282,31 @@ export function File() {
           </div>
         </div>
       </>
+    );
+  }
+
+  if (isClaudeMd) {
+    return (
+      <article className="mx-auto max-w-3xl">
+        {dialogs}
+        <header className="mb-10 flex items-end justify-between gap-4">
+          <div className="min-w-0 max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
+              Memory
+            </p>
+            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-text">
+              CLAUDE.md
+            </h1>
+            <p className="mt-2 text-sm text-text-muted">
+              {workspace.kind === "project"
+                ? "Standing instructions for this project. Claude reads this at the start of every session here."
+                : "Standing instructions in ~/.claude. Claude reads this across projects."}
+            </p>
+          </div>
+          {editAction}
+        </header>
+        <MarkdownView content={markdownContent} />
+      </article>
     );
   }
 

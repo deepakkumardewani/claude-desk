@@ -133,6 +133,7 @@ type TreeBranchProps = {
   folderPath: string;
   openFolders: Set<string>;
   activeHref: string;
+  basePath: string;
   onToggle: (key: string) => void;
 };
 
@@ -142,15 +143,17 @@ function TreeBranch({
   folderPath,
   openFolders,
   activeHref,
+  basePath,
   onToggle,
 }: TreeBranchProps) {
   if (node.kind === "file") {
-    const isActive = activeHref === node.href;
+    const href = `${basePath}${node.href}`;
+    const isActive = activeHref === href;
 
     return (
       <li role="treeitem" aria-selected={isActive} className="list-none">
         <NavLink
-          to={node.href}
+          to={href}
           className={({ isActive: linkActive }) => fileLinkClass(linkActive || isActive)}
         >
           <span className="w-3.5 shrink-0" />
@@ -193,6 +196,7 @@ function TreeBranch({
               folderPath={path}
               openFolders={openFolders}
               activeHref={activeHref}
+              basePath={basePath}
               onToggle={onToggle}
             />
           ))}
@@ -206,11 +210,21 @@ type FileTreeProps = {
   categories: TreeCategory[];
   loading?: boolean;
   error?: string | null;
+  basePath?: string;
 };
 
-export function FileTree({ categories, loading = false, error = null }: FileTreeProps) {
+export function FileTree({
+  categories,
+  loading = false,
+  error = null,
+  basePath = "",
+}: FileTreeProps) {
   const location = useLocation();
   const activeHref = location.pathname;
+  const relativeHref =
+    basePath && activeHref.startsWith(basePath)
+      ? activeHref.slice(basePath.length) || "/"
+      : activeHref;
   const [openFolders, setOpenFolders] = useState(loadOpenFolders);
 
   const trees = useMemo(() => {
@@ -225,9 +239,9 @@ export function FileTree({ categories, loading = false, error = null }: FileTree
       let changed = false;
 
       for (const { category, nodes } of trees) {
-        const categoryHref = `/${categoryToRoute(category.category)}`;
+        const categoryHref = `${basePath}/${categoryToRoute(category.category)}`;
         const onCategoryIndex = activeHref === categoryHref;
-        const inCategory = onCategoryIndex || isHrefInTree(nodes, activeHref);
+        const inCategory = onCategoryIndex || isHrefInTree(nodes, relativeHref);
 
         if (inCategory) {
           const catOpenKey = categoryKey(category.category);
@@ -237,7 +251,7 @@ export function FileTree({ categories, loading = false, error = null }: FileTree
           }
         }
 
-        const paths = findFolderPathsToHref(nodes, activeHref);
+        const paths = findFolderPathsToHref(nodes, relativeHref);
         if (paths === null) {
           continue;
         }
@@ -285,7 +299,7 @@ export function FileTree({ categories, loading = false, error = null }: FileTree
       {trees.map(({ category, nodes }) => {
         const catOpenKey = categoryKey(category.category);
         const isCategoryOpen = openFolders.has(catOpenKey);
-        const categoryHref = `/${categoryToRoute(category.category)}`;
+        const categoryHref = `${basePath}/${categoryToRoute(category.category)}`;
         const isCategoryIndex = activeHref === categoryHref;
 
         return (
@@ -331,6 +345,7 @@ export function FileTree({ categories, loading = false, error = null }: FileTree
                       folderPath=""
                       openFolders={openFolders}
                       activeHref={activeHref}
+                      basePath={basePath}
                       onToggle={handleToggle}
                     />
                   ))}

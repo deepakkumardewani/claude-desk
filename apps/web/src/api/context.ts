@@ -1,6 +1,14 @@
+import { apiFetch } from "../lib/sessionApi";
+
 export type ContextItem = {
   name: string;
   tokens?: number;
+};
+
+export type ContextGroup = {
+  name: string;
+  tokens: number;
+  items: ContextItem[];
 };
 
 export type ContextCategory = {
@@ -8,6 +16,7 @@ export type ContextCategory = {
   tokens: number;
   percentage: number;
   items?: ContextItem[];
+  groups?: ContextGroup[];
 };
 
 export type ContextDetails = {
@@ -25,12 +34,19 @@ export type ContextDetailsResponse =
   | { success: false; error: string };
 
 /**
- * Fetch context details from /api/context/all endpoint.
- * Returns real global context data including model, tokens, and category breakdown.
+ * Fetch context details from /api/context/all.
+ * Pass the active workspace so Claude is spawned in that project directory.
  */
-export async function fetchContextDetails(): Promise<ContextDetailsResponse> {
+export async function fetchContextDetails(
+  scope: "user" | "project" = "user",
+  projectDir?: string,
+): Promise<ContextDetailsResponse> {
   try {
-    const response = await fetch("/api/context/all");
+    const params = new URLSearchParams({ scope });
+    if (projectDir) {
+      params.set("projectDir", projectDir);
+    }
+    const response = await apiFetch(`/api/context/all?${params.toString()}`);
     const json = await response.json();
     if (!response.ok || !json.success) {
       return { success: false, error: json.error || "Failed to fetch" };

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vite-plus/test";
+import { MemoryRouter } from "react-router-dom";
 import { Mcp } from "./Mcp";
 import { ScopeProvider } from "../lib/scope";
 import type { Catalog, CatalogEntry } from "schema";
@@ -94,9 +95,11 @@ import { fetchCatalog } from "../lib/mcpCatalog";
 
 function renderMcp() {
   return render(
-    <ScopeProvider>
-      <Mcp />
-    </ScopeProvider>,
+    <MemoryRouter>
+      <ScopeProvider>
+        <Mcp />
+      </ScopeProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -117,7 +120,7 @@ describe("Mcp route", () => {
     expect(await screen.findByRole("heading", { name: "MCP Servers" })).toBeTruthy();
     expect(await screen.findByText("Filesystem")).toBeTruthy();
     expect(screen.getByText("Playwright")).toBeTruthy();
-    expect(screen.getByText("Memory")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Memory" })).toBeTruthy();
   });
 
   it("fetches catalog exactly once on mount", async () => {
@@ -151,7 +154,7 @@ describe("Mcp route", () => {
 
     await waitFor(() => {
       expect(screen.queryByText("Filesystem")).toBe(null);
-      expect(screen.getByText("Memory")).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Memory" })).toBeTruthy();
       expect(screen.queryByText("Playwright")).toBe(null);
     });
   });
@@ -189,9 +192,9 @@ describe("Mcp route", () => {
 
   it("shows Install button for uninstalled entries", async () => {
     renderMcp();
-    await screen.findByText("Memory");
+    await screen.findByRole("heading", { name: "Memory" });
 
-    const memoryCard = screen.getByText("Memory").closest("article");
+    const memoryCard = screen.getByRole("heading", { name: "Memory" }).closest("article");
     const buttons = memoryCard?.querySelectorAll("button");
     const installButton = Array.from(buttons || []).find((btn) => btn.textContent === "Install");
 
@@ -200,9 +203,9 @@ describe("Mcp route", () => {
 
   it("opens add dialog when Install is clicked", async () => {
     renderMcp();
-    await screen.findByText("Memory");
+    await screen.findByRole("heading", { name: "Memory" });
 
-    const memoryCard = screen.getByText("Memory").closest("article");
+    const memoryCard = screen.getByRole("heading", { name: "Memory" }).closest("article");
     const installButton = Array.from(memoryCard?.querySelectorAll("button") || []).find(
       (btn) => btn.textContent === "Install",
     ) as HTMLButtonElement;
@@ -219,12 +222,11 @@ describe("Mcp route", () => {
     expect(screen.getByText("Network error")).toBeTruthy();
   });
 
-  it("shows official and runtime badges", async () => {
+  it("shows runtime command in card footer", async () => {
     renderMcp();
     await screen.findByText("Filesystem");
 
     const filesystemCard = screen.getByText("Filesystem").closest("article");
-    expect(filesystemCard?.textContent).toContain("Official");
     expect(filesystemCard?.textContent).toContain("npx");
   });
 
@@ -263,54 +265,42 @@ describe("Mcp route", () => {
     renderMcp();
     await screen.findByText("Filesystem");
 
-    expect(screen.getByRole("button", { name: "memory" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "browser" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "files-and-git" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "All" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Memory" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Browser" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Files & Git" })).toBeTruthy();
   });
 
   it("filters by category when chip is selected", async () => {
     renderMcp();
     await screen.findByText("Filesystem");
 
-    const browserChip = screen.getByRole("button", { name: "browser" });
+    const browserChip = screen.getByRole("button", { name: "Browser" });
     fireEvent.click(browserChip);
 
     await waitFor(() => {
       expect(screen.getByText("Playwright")).toBeTruthy();
       expect(screen.queryByText("Filesystem")).toBe(null);
-      expect(screen.queryByText("Memory")).toBe(null);
+      expect(screen.queryByRole("heading", { name: "Memory" })).toBe(null);
     });
   });
 
-  it("shows clear filters button when filters are applied", async () => {
+  it("clears all category filters when All chip is clicked", async () => {
     renderMcp();
     await screen.findByText("Filesystem");
 
-    const searchInput = screen.getByPlaceholderText("Search MCP servers…");
-    fireEvent.change(searchInput, { target: { value: "memory" } });
+    fireEvent.click(screen.getByRole("button", { name: "Browser" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Clear filters" })).toBeTruthy();
-    });
-  });
-
-  it("clears all filters when clear button is clicked", async () => {
-    renderMcp();
-    await screen.findByText("Filesystem");
-
-    const searchInput = screen.getByPlaceholderText("Search MCP servers…");
-    fireEvent.change(searchInput, { target: { value: "memory" } });
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Clear filters" })).toBeTruthy();
+      expect(screen.queryByText("Filesystem")).toBe(null);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "All" }));
 
     await waitFor(() => {
       expect(screen.getByText("Filesystem")).toBeTruthy();
       expect(screen.getByText("Playwright")).toBeTruthy();
-      expect(screen.getByText("Memory")).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Memory" })).toBeTruthy();
     });
   });
 
@@ -318,8 +308,8 @@ describe("Mcp route", () => {
     renderMcp();
     await screen.findByText("Filesystem");
 
-    const filesGitChip = screen.getByRole("button", { name: "files-and-git" });
-    const browserChip = screen.getByRole("button", { name: "browser" });
+    const filesGitChip = screen.getByRole("button", { name: "Files & Git" });
+    const browserChip = screen.getByRole("button", { name: "Browser" });
 
     fireEvent.click(filesGitChip);
     fireEvent.click(browserChip);
@@ -327,7 +317,7 @@ describe("Mcp route", () => {
     await waitFor(() => {
       expect(screen.getByText("Filesystem")).toBeTruthy();
       expect(screen.getByText("Playwright")).toBeTruthy();
-      expect(screen.queryByText("Memory")).toBe(null);
+      expect(screen.queryByRole("heading", { name: "Memory" })).toBe(null);
     });
   });
 });

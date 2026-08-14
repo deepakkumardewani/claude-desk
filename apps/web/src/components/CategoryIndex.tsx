@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchSettings, type ApiCategory } from "../lib/api";
+import { useWorkspace } from "../lib/scope";
+import { workspaceBasePath } from "../lib/workspaceState";
 import { getCategoryMeta } from "../lib/categories";
 import { CATEGORY_LABELS, pluginEntriesFromSettings, type WorkspaceFile } from "../lib/workspace";
 import type { ClaudeSettings } from "schema";
@@ -30,6 +32,8 @@ type Props = {
 export function CategoryIndex({ category }: Props) {
   const label = CATEGORY_LABELS[category];
   const { colorToken } = getCategoryMeta(category);
+  const { workspace, activeScope, projectDir } = useWorkspace();
+  const basePath = workspaceBasePath(workspace);
   const [plugins, setPlugins] = useState<WorkspaceFile[] | null>(null);
 
   useEffect(() => {
@@ -39,10 +43,15 @@ export function CategoryIndex({ category }: Props) {
     }
 
     let cancelled = false;
-    fetchSettings()
+    fetchSettings(activeScope, projectDir ?? undefined)
       .then((response) => {
         if (!cancelled) {
-          setPlugins(pluginEntriesFromSettings(response.settings as ClaudeSettings));
+          setPlugins(
+            pluginEntriesFromSettings(response.settings as ClaudeSettings).map((entry) => ({
+              ...entry,
+              href: `${basePath}/settings`,
+            })),
+          );
         }
       })
       .catch(() => {
@@ -54,7 +63,7 @@ export function CategoryIndex({ category }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [category]);
+  }, [category, activeScope, projectDir, basePath]);
 
   const pluginList = useMemo(() => plugins ?? [], [plugins]);
 
@@ -83,7 +92,10 @@ export function CategoryIndex({ category }: Props) {
         ) : pluginList.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border-subtle bg-surface-raised p-10 text-center">
             <p className="font-medium text-text">No plugins configured</p>
-            <Link to="/settings" className="mt-2 inline-block text-sm font-medium text-accent">
+            <Link
+              to={`${basePath}/settings`}
+              className="mt-2 inline-block text-sm font-medium text-accent"
+            >
               Add plugins in Settings →
             </Link>
           </div>

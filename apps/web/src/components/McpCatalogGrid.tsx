@@ -1,10 +1,22 @@
 import type { CatalogEntry } from "schema";
 import { isEntryInstalled } from "../lib/mcpCatalog";
+import { categoryDotClass } from "../lib/mcpCategory";
 
 interface McpCatalogGridProps {
   entries: CatalogEntry[];
   installedNames: ReadonlySet<string>;
   onAdd: (entry: CatalogEntry) => void;
+}
+
+function scrollToInstalledRow(name: string) {
+  const list = document.querySelector('[data-testid="mcp-installed-list"]');
+  const target = Array.from(list?.querySelectorAll("[data-origin]") ?? []).find((el) =>
+    el.textContent?.toLowerCase().includes(name.toLowerCase()),
+  );
+  if (!(target instanceof HTMLElement)) return;
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  target.classList.add("bg-accent/10");
+  setTimeout(() => target.classList.remove("bg-accent/10"), 1200);
 }
 
 export function McpCatalogGrid({ entries, installedNames, onAdd }: McpCatalogGridProps) {
@@ -20,22 +32,22 @@ export function McpCatalogGrid({ entries, installedNames, onAdd }: McpCatalogGri
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
       {entries.map((entry) => {
         const installed = isEntryInstalled(entry, installedNames);
         return (
           <article
             key={entry.id}
-            className={`flex flex-col rounded-xl border bg-surface-raised p-4 shadow-sm transition ${
+            className={`flex flex-col gap-3 rounded-xl border bg-surface-raised p-4 shadow-sm transition ${
               installed
-                ? "border-accent/40 ring-1 ring-accent/15"
-                : "border-border-subtle hover:border-accent/25"
+                ? "border-border-subtle opacity-70"
+                : "border-border-subtle hover:border-accent/25 hover:shadow-md"
             }`}
           >
-            <div className="flex items-start gap-3">
-              <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-soft text-xs font-semibold text-text-muted">
-                {entry.name.slice(0, 2).toUpperCase()}
-              </div>
+            <div className="flex items-start gap-2">
+              <span
+                className={`mt-1.5 size-2 shrink-0 rounded-full ${categoryDotClass(entry.category)}`}
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="truncate font-medium text-text">{entry.name}</h3>
@@ -44,36 +56,47 @@ export function McpCatalogGrid({ entries, installedNames, onAdd }: McpCatalogGri
                       Installed
                     </span>
                   ) : null}
-                  <span className="rounded-full border border-border-subtle px-2 py-0.5 text-[0.65rem] text-text-muted">
-                    {entry.official ? "Official" : "Community"}
-                  </span>
-                  <span className="rounded-full border border-border-subtle px-2 py-0.5 text-[0.65rem] text-text-muted">
-                    {entry.command}
-                  </span>
+                  {!entry.official ? (
+                    <span className="rounded-full border border-border-subtle px-2 py-0.5 text-[0.65rem] text-text-muted">
+                      Community
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
 
-            <p className="mt-3 line-clamp-3 flex-1 text-sm text-text-muted">{entry.description}</p>
+            <p className="line-clamp-2 flex-1 text-sm text-text-muted">{entry.description}</p>
 
-            <div className="mt-4 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+            <div className="mt-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 font-mono text-xs text-text-muted">
+                <span>{entry.command}</span>
                 {entry.homepage ? (
-                  <a
-                    href={entry.homepage}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-text-muted underline-offset-2 hover:text-text hover:underline"
-                  >
-                    Docs
-                  </a>
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <a
+                      href={entry.homepage}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="not-italic underline-offset-2 hover:text-text hover:underline"
+                    >
+                      Docs
+                    </a>
+                  </>
                 ) : null}
               </div>
-              {!installed && (
+              {installed ? (
+                <button
+                  type="button"
+                  onClick={() => scrollToInstalledRow(entry.id)}
+                  className="text-xs text-accent underline-offset-2 hover:underline"
+                >
+                  Manage
+                </button>
+              ) : (
                 <button
                   type="button"
                   onClick={() => onAdd(entry)}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition hover:opacity-90"
+                  className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text transition hover:border-accent hover:bg-accent hover:text-accent-fg"
                 >
                   Install
                 </button>

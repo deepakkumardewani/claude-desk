@@ -20,14 +20,22 @@ afterEach(() => {
 });
 
 function renderFileAt(path: string) {
-  const router = createMemoryRouter([{ path: "/:segment/*", element: <File /> }], {
-    initialEntries: [path],
-  });
-  return render(
-    <ScopeProvider>
-      <RouterProvider router={router} />
-    </ScopeProvider>,
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/:segment/*",
+        element: (
+          <ScopeProvider>
+            <File />
+          </ScopeProvider>
+        ),
+      },
+    ],
+    {
+      initialEntries: [path],
+    },
   );
+  return render(<RouterProvider router={router} />);
 }
 
 test("plugin file shows View only badge", async () => {

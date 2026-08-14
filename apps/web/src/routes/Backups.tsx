@@ -1,6 +1,73 @@
 import { useEffect, useState } from "react";
 import { BackupList } from "../components/BackupList";
 import { fetchBackups, type BackupsFile } from "../lib/api";
+import { splitPathLabel } from "../lib/workspace";
+
+function backupCountLabel(count: number): string {
+  return count === 1 ? "1 backup" : `${count} backups`;
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={`size-4 shrink-0 text-text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+function FileGroup({
+  file,
+  open,
+  onToggle,
+  onRestored,
+}: {
+  file: BackupsFile;
+  open: boolean;
+  onToggle: () => void;
+  onRestored: () => void;
+}) {
+  const { prefix, leaf } = splitPathLabel(file.path);
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="group flex w-full items-start gap-3 py-3 text-left transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate font-medium text-text group-hover:text-accent">{leaf}</span>
+            <span className="shrink-0 font-mono text-xs tabular-nums text-text-muted">
+              {backupCountLabel(file.backups.length)}
+            </span>
+          </span>
+          {prefix ? (
+            <span className="mt-0.5 block truncate font-mono text-xs text-text-muted">
+              {prefix}
+            </span>
+          ) : null}
+        </span>
+        <Chevron open={open} />
+      </button>
+      {open ? (
+        <div className="pb-4 pl-0">
+          <BackupList filePath={file.path} backups={file.backups} onRestore={onRestored} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function Backups() {
   const [files, setFiles] = useState<BackupsFile[]>([]);
@@ -33,6 +100,16 @@ export function Backups() {
     };
   }, []);
 
+  function refreshFiles(): void {
+    fetchBackups()
+      .then((response) => {
+        setFiles(response.files);
+      })
+      .catch((err: unknown) => {
+        console.error("Unable to refresh backups after restore", err);
+      });
+  }
+
   if (loading) {
     return <p className="text-text-muted">Loading backups…</p>;
   }
@@ -42,71 +119,30 @@ export function Backups() {
   }
 
   return (
-    <section className="animate-fade-in space-y-6">
-      <div className="flex flex-col gap-2">
-        <h2 className="font-display text-2xl font-semibold tracking-tight text-text">Backups</h2>
-        <p className="text-sm text-text-muted">
-          View and restore previous versions of your configuration files.
+    <section className="mx-auto max-w-3xl">
+      <header className="max-w-2xl">
+        <h1 className="font-display text-3xl font-bold tracking-tight text-text">Backups</h1>
+        <p className="mt-2 text-base text-text-muted">
+          Previous versions of files you have changed. Restore one to roll back.
         </p>
-      </div>
+      </header>
 
       {files.length === 0 ? (
-        <div className="rounded-lg border border-border-subtle bg-surface-raised p-8 text-center">
-          <p className="text-text-muted">
-            No backups yet. Backups are created automatically when you modify files.
-          </p>
-        </div>
+        <p className="mt-8 text-sm text-text-muted">
+          No backups yet. Saving a file creates a snapshot automatically.
+        </p>
       ) : (
-        <div className="space-y-4">
+        <div className="mt-8 divide-y divide-border-subtle border-t border-border-subtle">
           {files.map((file) => (
-            <div
+            <FileGroup
               key={file.path}
-              className="rounded-lg border border-border-subtle bg-surface-raised p-4"
-            >
-              <button
-                onClick={() => setExpandedFile(expandedFile === file.path ? null : file.path)}
-                className="flex w-full items-center justify-between gap-2 transition hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <div className="flex-1 text-left">
-                  <h3 className="font-medium text-text">{file.path}</h3>
-                  <p className="text-sm text-text-muted">{file.backups.length} backup(s)</p>
-                </div>
-                <svg
-                  className={`h-5 w-5 transition-transform ${
-                    expandedFile === file.path ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                  />
-                </svg>
-              </button>
-
-              {expandedFile === file.path && (
-                <div className="mt-4 pt-4 border-t border-border-subtle">
-                  <BackupList
-                    filePath={file.path}
-                    backups={file.backups}
-                    onRestore={() => {
-                      // Optionally refresh the backups list
-                      fetchBackups()
-                        .then((response) => {
-                          setFiles(response.files);
-                        })
-                        .catch(() => {
-                          // Silently fail
-                        });
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+              file={file}
+              open={expandedFile === file.path}
+              onToggle={() =>
+                setExpandedFile((current) => (current === file.path ? null : file.path))
+              }
+              onRestored={refreshFiles}
+            />
           ))}
         </div>
       )}

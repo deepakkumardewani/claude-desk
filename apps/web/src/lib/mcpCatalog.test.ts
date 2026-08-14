@@ -172,12 +172,14 @@ describe("entryToTransport", () => {
     });
   });
 
-  it("omits env key when no env values provided", () => {
+  it("uses a placeholder when no env values provided", () => {
     const transport = entryToTransport(entryWithEnv);
-    expect(transport).not.toHaveProperty("env");
+    expect(transport.env).toEqual({
+      GITHUB_TOKEN: "${GITHUB_TOKEN}",
+    });
   });
 
-  it("includes env key when values provided", () => {
+  it("includes literal env value when provided", () => {
     const transport = entryToTransport(entryWithEnv, {
       GITHUB_TOKEN: "ghp_test123",
     });
@@ -186,7 +188,7 @@ describe("entryToTransport", () => {
     });
   });
 
-  it("omits undefined env values", () => {
+  it("ignores values for keys not declared on the entry", () => {
     const transport = entryToTransport(entryWithEnv, {
       GITHUB_TOKEN: "ghp_test123",
       OTHER_VAR: "value",
@@ -238,7 +240,7 @@ describe("fetchCatalog", () => {
 
     const result = await fetchCatalog();
     expect(result).toEqual(mockCatalog);
-    expect(fetchSpy).toHaveBeenCalledWith("/api/mcp/catalog");
+    expect(fetchSpy).toHaveBeenCalledWith("/api/mcp/catalog", expect.any(Object));
     fetchSpy.mockRestore();
   });
 

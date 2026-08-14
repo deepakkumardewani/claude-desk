@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ContextItem } from "../api/context";
+import type { ContextGroup, ContextItem } from "../api/context";
 
 export type CategorySummaryTableCategory = {
   name: string;
@@ -7,6 +7,7 @@ export type CategorySummaryTableCategory = {
   percentage: number;
   color: string;
   items?: ContextItem[];
+  groups?: ContextGroup[];
 };
 
 type Props = {
@@ -32,102 +33,133 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
   );
 }
 
-function RowContent({
-  category,
-  itemCount,
+function leafCount(category: CategorySummaryTableCategory): number {
+  const grouped = category.groups?.reduce((sum, group) => sum + group.items.length, 0) ?? 0;
+  return grouped + (category.items?.length ?? 0);
+}
+
+function tokenShare(tokens: number | undefined, parentTokens: number): string {
+  if (tokens === undefined || parentTokens <= 0) return "—";
+  const share = (tokens / parentTokens) * 100;
+  return share < 0.1 ? "<0.1%" : `${share.toFixed(1)}%`;
+}
+
+function ItemRows({
+  items,
+  parentTokens,
+  label,
 }: {
-  category: CategorySummaryTableCategory;
-  itemCount?: number;
+  items: ContextItem[];
+  parentTokens: number;
+  label: string;
 }) {
+  const sorted = [...items].sort((a, b) => (b.tokens ?? 0) - (a.tokens ?? 0));
   return (
-    <>
-      <span
-        aria-hidden="true"
-        className="size-2.5 shrink-0 rounded-sm"
-        style={{ backgroundColor: category.color }}
-      />
-      <span className="flex min-w-0 flex-1 items-baseline gap-2 text-left text-sm font-medium text-text">
-        <span className="truncate">{category.name}</span>
-        {itemCount !== undefined && itemCount > 0 ? (
-          <span className="shrink-0 font-sans text-xs font-normal tabular-nums text-text-muted">
-            {itemCount}
+    <ul aria-label={label} className="flex flex-col py-1">
+      {sorted.map((item, index) => (
+        <li
+          key={`${item.name}-${index}`}
+          className="flex items-center gap-3 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-surface-soft"
+        >
+          <span className="min-w-0 flex-1 truncate text-text" title={item.name}>
+            {item.name}
           </span>
-        ) : null}
-      </span>
-      <span className="w-14 shrink-0 text-right text-sm text-text-muted">
-        {category.percentage.toFixed(1)}%
-      </span>
-      <span className="w-24 shrink-0 text-right font-mono text-sm tabular-nums text-text">
-        {category.tokens.toLocaleString()}
-      </span>
-    </>
+          <span className="w-14 shrink-0 text-right tabular-nums text-text-muted">
+            {tokenShare(item.tokens, parentTokens)}
+          </span>
+          <span className="w-24 shrink-0 text-right font-mono tabular-nums text-text">
+            {item.tokens !== undefined ? item.tokens.toLocaleString() : "—"}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
-/** Caps expanded item lists so long categories (e.g. Skills) scroll in-place. */
-const ITEM_LIST_MAX_HEIGHT_CLASS = "max-h-56";
-
-function ItemList({ category }: { category: CategorySummaryTableCategory }) {
-  const items = [...(category.items ?? [])].sort((a, b) => (b.tokens ?? 0) - (a.tokens ?? 0));
-  const showScrollFade = items.length > 8;
+function GroupRow({ group, parentTokens }: { group: ContextGroup; parentTokens: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const count = group.items.length;
 
   return (
-    <div className="relative mb-1 ml-[1.35rem]">
-      <div
-        className={`border-l border-border-subtle ${ITEM_LIST_MAX_HEIGHT_CLASS} overflow-y-auto overscroll-contain`}
+    <div>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <ul aria-label={`${category.name} items`} className="flex flex-col py-1.5 pl-3 pr-3">
-          {items.map((item, index) => {
-            const share =
-              item.tokens !== undefined && category.tokens > 0
-                ? (item.tokens / category.tokens) * 100
-                : null;
+        <ChevronIcon expanded={expanded} />
+        <span className="flex min-w-0 flex-1 items-baseline gap-2 text-left font-medium text-text">
+          <span className="truncate">{group.name}</span>
+          <span className="shrink-0 text-xs font-normal tabular-nums text-text-muted">{count}</span>
+        </span>
+        <span className="w-14 shrink-0 text-right text-xs tabular-nums text-text-muted">
+          {tokenShare(group.tokens, parentTokens)}
+        </span>
+        <span className="w-24 shrink-0 text-right font-mono text-xs tabular-nums text-text">
+          {group.tokens.toLocaleString()}
+        </span>
+      </button>
+      {expanded ? (
+        <div className="ml-6 max-h-56 overflow-y-auto overscroll-contain pr-1">
+          <ItemRows
+            items={group.items}
+            parentTokens={parentTokens}
+            label={`${group.name} skills`}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
-            return (
-              <li
-                key={`${item.name}-${index}`}
-                className="flex items-center gap-3 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-surface-soft"
-              >
-                <span className="min-w-0 flex-1 truncate text-text" title={item.name}>
-                  {item.name}
-                </span>
-                <span className="w-14 shrink-0 text-right tabular-nums text-text-muted">
-                  {share === null ? "—" : share < 0.1 ? "<0.1%" : `${share.toFixed(1)}%`}
-                </span>
-                <span className="w-24 shrink-0 text-right font-mono tabular-nums text-text">
-                  {item.tokens !== undefined ? item.tokens.toLocaleString() : "—"}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-      {showScrollFade ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-surface to-transparent"
-        />
+function CategoryBody({ category }: { category: CategorySummaryTableCategory }) {
+  const groups = category.groups ?? [];
+  const items = category.items ?? [];
+
+  return (
+    <div className="mb-2 ml-6 flex flex-col gap-0.5">
+      {groups.map((group) => (
+        <GroupRow key={group.name} group={group} parentTokens={category.tokens} />
+      ))}
+      {items.length > 0 ? (
+        <div className="max-h-56 overflow-y-auto overscroll-contain">
+          <ItemRows items={items} parentTokens={category.tokens} label={`${category.name} items`} />
+        </div>
       ) : null}
     </div>
   );
 }
 
 function CategoryRow({ category }: { category: CategorySummaryTableCategory }) {
-  const [expanded, setExpanded] = useState(false);
-  const itemCount = category.items?.length ?? 0;
-  const expandable = itemCount > 0;
+  const count = leafCount(category);
+  const expandable = count > 0;
+  const [expanded, setExpanded] = useState(() => (category.groups?.length ?? 0) > 0);
 
   if (!expandable) {
     return (
       <div role="row" className="flex items-center gap-3 rounded-lg px-3 py-2.5">
         <span aria-hidden="true" className="w-3.5 shrink-0" />
-        <RowContent category={category} />
+        <span
+          aria-hidden="true"
+          className="size-2.5 shrink-0 rounded-sm"
+          style={{ backgroundColor: category.color }}
+        />
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-text">
+          {category.name}
+        </span>
+        <span className="w-14 shrink-0 text-right text-sm text-text-muted">
+          {category.percentage.toFixed(1)}%
+        </span>
+        <span className="w-24 shrink-0 text-right font-mono text-sm tabular-nums text-text">
+          {category.tokens.toLocaleString()}
+        </span>
       </div>
     );
   }
 
   return (
-    <div role="row" className={expanded ? "rounded-lg ring-1 ring-border-subtle" : undefined}>
+    <div role="row">
       <button
         type="button"
         aria-expanded={expanded}
@@ -135,21 +167,36 @@ function CategoryRow({ category }: { category: CategorySummaryTableCategory }) {
         className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ChevronIcon expanded={expanded} />
-        <RowContent category={category} itemCount={itemCount} />
+        <span
+          aria-hidden="true"
+          className="size-2.5 shrink-0 rounded-sm"
+          style={{ backgroundColor: category.color }}
+        />
+        <span className="flex min-w-0 flex-1 items-baseline gap-2 text-left text-sm font-medium text-text">
+          <span className="truncate">{category.name}</span>
+          <span className="shrink-0 text-xs font-normal tabular-nums text-text-muted">{count}</span>
+        </span>
+        <span className="w-14 shrink-0 text-right text-sm text-text-muted">
+          {category.percentage.toFixed(1)}%
+        </span>
+        <span className="w-24 shrink-0 text-right font-mono text-sm tabular-nums text-text">
+          {category.tokens.toLocaleString()}
+        </span>
       </button>
-      {expanded ? <ItemList category={category} /> : null}
+      {expanded ? <CategoryBody category={category} /> : null}
     </div>
   );
 }
 
 export function CategorySummaryTable({ categories }: Props) {
   return (
-    <div role="table" aria-label="Context category breakdown" className="flex flex-col gap-1">
+    <div role="table" aria-label="Context category breakdown" className="flex flex-col gap-0.5">
       <div
         role="row"
-        className="flex items-center gap-3 px-3 pb-1 text-xs font-medium uppercase tracking-wider text-text-muted"
+        className="flex items-center gap-3 px-3 pb-2 text-xs font-medium uppercase tracking-wider text-text-muted"
       >
         <span aria-hidden="true" className="w-3.5 shrink-0" />
+        <span aria-hidden="true" className="size-2.5 shrink-0" />
         <span role="columnheader" className="flex-1 text-left">
           Category
         </span>
