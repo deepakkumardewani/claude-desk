@@ -1,10 +1,15 @@
 import { describe, it, expect } from "vite-plus/test";
-import { parseTranscriptLine, parseTranscriptContent } from "./parser.js";
+import { parseTranscriptLine, parseTranscriptContent, PRICING_AS_OF } from "./parser.js";
 import {
   validTranscriptEntry,
   validTranscriptEntry2,
   entryWithoutModel,
   entryWithoutUsage,
+  entryWithCacheTokens,
+  entryWithUnknownModel,
+  retriedRequestEntryFirst,
+  retriedRequestEntrySecond,
+  entryWithoutDedupeKey,
   sampleTranscriptContent,
 } from "./fixtures.js";
 
@@ -141,19 +146,63 @@ describe("parseTranscriptLine", () => {
     expect(result?.cost).toBeCloseTo(0.219375, 5);
   });
 
-  it("should handle unknown models gracefully", () => {
-    const entry = {
-      message: {
-        model: "claude-unknown-model-9999",
-        usage: { input_tokens: 100, output_tokens: 50 },
-      },
-      type: "assistant",
-      timestamp: "2026-07-14T13:45:19.137Z",
-      cwd: "/Users/test",
-    };
-    const result = parseTranscriptLine(JSON.stringify(entry));
-    // Should be skipped because model doesn't exist in pricing
-    expect(result).toBeNull();
+  it("should still emit a record with cost 0 for unpriced models", () => {
+    const line = JSON.stringify(entryWithUnknownModel);
+    const result = parseTranscriptLine(line);
+
+    expect(result).not.toBeNull();
+    expect(result?.model).toBe("claude-unknown-model-9999");
+    expect(result?.inputTokens).toBe(100);
+    expect(result?.outputTokens).toBe(50);
+    expect(result?.cost).toBe(0);
+  });
+
+  it("should include cache read/write tokens in cost", () => {
+    const line = JSON.stringify(entryWithCacheTokens);
+    const result = parseTranscriptLine(line);
+
+    expect(result).not.toBeNull();
+    expect(result?.cacheReadTokens).toBe(4000);
+    expect(result?.cacheWriteTokens).toBe(2000);
+    // sonnet family: input 3, output 15, cacheWrite 3.75, cacheRead 0.3 per 1M
+    // 1000*3 + 500*15 + 2000*3.75 + 4000*0.3 = 3000 + 7500 + 7500 + 1200 = 19200 / 1e6
+    expect(result?.cost).toBeCloseTo(0.0192, 6);
+  });
+
+  it("should default cache tokens to 0 when absent", () => {
+    const line = JSON.stringify(validTranscriptEntry2);
+    const result = parseTranscriptLine(line);
+
+    expect(result?.cacheReadTokens).toBe(0);
+    expect(result?.cacheWriteTokens).toBe(0);
+  });
+
+  it("should derive dedupeKey from requestId, falling back to message.id", () => {
+    const withRequestId = parseTranscriptLine(JSON.stringify(retriedRequestEntryFirst));
+    expect(withRequestId?.dedupeKey).toBe("req-retry-1");
+
+    const withoutRequestId = parseTranscriptLine(JSON.stringify(validTranscriptEntry));
+    expect(withoutRequestId?.dedupeKey).toBe(validTranscriptEntry.message.id);
+  });
+
+  it("should attach sessionId and projectOverride from parse options", () => {
+    const result = parseTranscriptLine(JSON.stringify(validTranscriptEntry), {
+      sessionId: "session-123",
+      projectOverride: "my-project",
+    });
+
+    expect(result?.sessionId).toBe("session-123");
+    expect(result?.project).toBe("my-project");
+  });
+
+  it("should default sessionId to unknown when not provided", () => {
+    const result = parseTranscriptLine(JSON.stringify(validTranscriptEntry));
+    expect(result?.sessionId).toBe("unknown");
+  });
+
+  it("should export a PRICING_AS_OF constant", () => {
+    expect(typeof PRICING_AS_OF).toBe("string");
+    expect(PRICING_AS_OF.length).toBeGreaterThan(0);
   });
 });
 
@@ -191,5 +240,36 @@ ${JSON.stringify(validTranscriptEntry2)}`;
     expect(Object.keys(byDay).length).toBe(2);
     expect(byDay["2026-07-14"].length).toBe(1);
     expect(byDay["2026-07-15"].length).toBe(1);
+  });
+
+  it("should dedupe retried requests by requestId, last write wins", () => {
+    const content = `${JSON.stringify(retriedRequestEntryFirst)}
+${JSON.stringify(retriedRequestEntrySecond)}`;
+
+    const results = parseTranscriptContent(content);
+    expect(results.length).toBe(1);
+    expect(results[0].inputTokens).toBe(200);
+    expect(results[0].outputTokens).toBe(100);
+  });
+
+  it("should pass through records without a dedupe key untouched", () => {
+    const content = `${JSON.stringify(retriedRequestEntryFirst)}
+${JSON.stringify(entryWithoutDedupeKey)}`;
+
+    const results = parseTranscriptContent(content);
+    expect(results.length).toBe(2);
+  });
+
+  it("should attach sessionId and projectOverride from options to every record", () => {
+    const results = parseTranscriptContent(sampleTranscriptContent, {
+      sessionId: "session-abc",
+      projectOverride: "shared-project",
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+    for (const record of results) {
+      expect(record.sessionId).toBe("session-abc");
+      expect(record.project).toBe("shared-project");
+    }
   });
 });
