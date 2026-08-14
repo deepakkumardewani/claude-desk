@@ -1,4 +1,10 @@
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { basename, isAbsolute, join } from "node:path";
+import { userClaudeRoot } from "../fs/scoped.js";
+
+/** Claude's local estimator (`U_`) is characters / 4. */
+const CHARS_PER_TOKEN = 4;
 
 type ContextEntry = {
   category: string;
@@ -22,6 +28,16 @@ export type ContextResponse = ContextSuccess | ContextError;
 type ContextItem = {
   name: string;
   tokens?: number;
+  group?: string;
+  sourcePath?: string;
+  serverName?: string;
+  toolId?: string;
+};
+
+type ContextGroup = {
+  name: string;
+  tokens: number;
+  items: ContextItem[];
 };
 
 type ContextCategory = {
@@ -29,6 +45,7 @@ type ContextCategory = {
   tokens: number;
   percentage: number;
   items: ContextItem[];
+  groups?: ContextGroup[];
 };
 
 type ContextAllSuccess = {
@@ -49,17 +66,88 @@ type ContextAllError = {
 
 export type ContextAllResponse = ContextAllSuccess | ContextAllError;
 
-// Parses a compact token string like "7.3k", "1m", "~30", "516" into a number
+function stripAnsi(value: string): string {
+  const esc = String.fromCharCode(27);
+  const bel = String.fromCharCode(7);
+  return value
+    .replace(new RegExp(`${esc}\\[[0-9;]*[A-Za-z]`, "g"), "")
+    .replace(new RegExp(`${esc}\\][^${bel}]*${bel}`, "g"), "");
+}
+
+function normalizeTokenRaw(raw: string): string {
+  return raw.trim().replace(/,/g, "").replace(/^~/, "").replace(/^<\s*/, "").replace(/%$/u, "");
+}
+
+function isTokenLike(raw: string): boolean {
+  return /^-?\d+(\.\d+)?[kKmM]?$/u.test(normalizeTokenRaw(raw));
+}
+
+function estimateTokens(text: string): number {
+  if (!text) return 0;
+  return Math.round(text.length / CHARS_PER_TOKEN);
+}
+
+// Parses a compact token string like "7.3k", "1m", "~30", "< 20", "516" into a number
 function parseTokenCount(raw: string): number {
-  const s = raw.trim().replace(/,/g, "").replace(/^~/, "");
+  const s = normalizeTokenRaw(raw);
   if (/m$/i.test(s)) {
     return Math.round(parseFloat(s) * 1_000_000);
   }
   if (/k$/i.test(s)) {
     return Math.round(parseFloat(s) * 1000);
   }
-  const n = parseInt(s, 10);
-  return isNaN(n) ? 0 : n;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+function headerIndex(headerCols: string[], pattern: RegExp): number {
+  return headerCols.findIndex((col) => pattern.test(col));
+}
+
+function displayItemName(cols: string[], headerCols: string[]): string {
+  const pathIdx = headerIndex(headerCols, /^path$/i);
+  const typeIdx = headerIndex(headerCols, /^type$/i);
+  const toolIdx = headerIndex(headerCols, /^tool$/i);
+  const agentIdx = headerIndex(headerCols, /^agent type$/i);
+
+  if (pathIdx >= 0 && cols[pathIdx]) {
+    const fileName = basename(cols[pathIdx]);
+    const type = typeIdx >= 0 ? cols[typeIdx] : "";
+    return type ? `${type} · ${fileName}` : fileName;
+  }
+  if (toolIdx >= 0 && cols[toolIdx]) {
+    const parts = cols[toolIdx].split("__");
+    return parts.length >= 3 ? parts.slice(2).join("__") : cols[toolIdx];
+  }
+  if (agentIdx >= 0 && cols[agentIdx]) {
+    return cols[agentIdx];
+  }
+  return cols[0] ?? "";
+}
+
+function tokenColumnIndex(headerCols: string[]): number {
+  const named = headerCols.findIndex((col) => /token/i.test(col));
+  if (named >= 0) {
+    return named;
+  }
+  // Name | Tokens | %  — tokens are the middle column, not the last.
+  if (headerCols.length >= 3) {
+    return 1;
+  }
+  return headerCols.length - 1;
+}
+
+function tokensFromRow(cols: string[], tokenIndex: number): number {
+  const preferred = cols[tokenIndex];
+  if (preferred !== undefined && isTokenLike(preferred)) {
+    return parseTokenCount(preferred);
+  }
+  for (let i = cols.length - 1; i >= 1; i -= 1) {
+    if (isTokenLike(cols[i])) {
+      return parseTokenCount(cols[i]);
+    }
+  }
+  return 0;
 }
 
 // Strips qualifiers like "(deferred)" before comparing names, since the summary table and
@@ -69,6 +157,54 @@ function normalizeCategoryKey(name: string): string {
     .replace(/\(.*?\)/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
+}
+
+const SKILL_GROUP_HEADER = /^(Plugin\s*\([^)]+\)|Built-in|Built in|Bundled|Managed|Project|User)$/i;
+
+function isSkillGroupHeader(name: string): boolean {
+  return SKILL_GROUP_HEADER.test(name.trim());
+}
+
+function stripTreePrefix(line: string): string {
+  return line
+    .replace(/[\u2500-\u257F]/g, " ")
+    .replace(/^[|\sL`'-]+/u, "")
+    .replace(/\*\*/g, "")
+    .trim();
+}
+
+function parseNamedTokenLine(line: string): { name: string; tokens: number } | null {
+  const match = stripTreePrefix(line).match(
+    /^(.+?):\s*(?:~|<\s*)?([\d.,]+[kKmM]?)\s*(?:tokens?)?$/i,
+  );
+  if (!match) return null;
+  return { name: match[1].trim(), tokens: parseTokenCount(match[2]) };
+}
+
+function inferSkillGroup(sourcePath: string | undefined): string | undefined {
+  if (!sourcePath) return undefined;
+  const path = sourcePath.replace(/\\/g, "/");
+  const plugin = path.match(/\/plugins\/(?:cache\/)?([^/]+)/i);
+  if (plugin) return `Plugin (${plugin[1]})`;
+  const home = (process.env.HOME ?? "").replace(/\\/g, "/");
+  if (
+    home &&
+    (path.startsWith(`${home}/.claude/skills/`) || path.startsWith(`${home}/.cursor/skills/`))
+  ) {
+    return "User";
+  }
+  if (/\/\.(claude|cursor)\/skills\//i.test(path)) return "Project";
+  return undefined;
+}
+
+function groupSortRank(name: string): number {
+  const lower = name.toLowerCase();
+  if (lower.startsWith("plugin")) return 0;
+  if (lower === "built-in" || lower === "built in" || lower === "bundled") return 1;
+  if (lower === "managed") return 2;
+  if (lower === "project") return 3;
+  if (lower === "user") return 4;
+  return 50;
 }
 
 function parseContextOutput(output: string): ContextSuccess | null {
@@ -181,8 +317,8 @@ export async function getContextResponse(): Promise<ContextResponse> {
   });
 }
 
-function parseContextAllOutput(output: string): ContextAllSuccess | null {
-  const lines = output.split("\n");
+export function parseContextAllOutput(output: string): ContextAllSuccess | null {
+  const lines = stripAnsi(output).split("\n");
 
   // Extract model from its own line: "**Model:** claude-opus-4-7[1m]"
   let modelId = "";
@@ -263,31 +399,67 @@ function parseContextAllOutput(output: string): ContextAllSuccess | null {
     }
   }
 
-  // Parse detail sections (### MCP Tools / Custom Agents / Memory Files / Skills), each a
-  // markdown table whose first column is the item name and last column is its token count.
-  // These sections don't map 1:1 onto the category-breakdown rows above (e.g. a section can
-  // have all-zero-token items and no corresponding summary row), so they're merged by name.
+  // Parse detail sections (### MCP Tools / Custom Agents / Memory Files / Skills).
+  // Token counts live in a named Tokens column (or the middle column), not always the last.
+  // Nested skill sources (#### Plugin (name) / tree headers / Source column) stay as groups.
   const sectionTitles = new Map<string, string>();
   const sectionItems = new Map<string, ContextItem[]>();
   {
     let currentKey: string | null = null;
+    let currentGroup: string | undefined;
     let sectionTableStarted = false;
+    let tokenIndex = -1;
+    let headerCols: string[] = [];
     for (const line of lines) {
-      const sectionMatch = line.match(/^###\s+(.+)$/);
+      const groupHeading = line.match(/^#{4,6}\s+(.+)$/);
+      if (groupHeading && currentKey) {
+        currentGroup = groupHeading[1].replace(/\(\d+[kKmM]?\)\s*$/u, "").trim();
+        sectionTableStarted = false;
+        tokenIndex = -1;
+        headerCols = [];
+        continue;
+      }
+
+      const sectionMatch = line.match(/^###\s+(?!#)(.+)$/);
       if (sectionMatch) {
         const title = sectionMatch[1].trim();
         if (title === "Estimated usage by category") {
           currentKey = null;
+          currentGroup = undefined;
           continue;
         }
         currentKey = normalizeCategoryKey(title);
+        currentGroup = undefined;
         sectionTitles.set(currentKey, title);
-        sectionItems.set(currentKey, []);
+        if (!sectionItems.has(currentKey)) {
+          sectionItems.set(currentKey, []);
+        }
         sectionTableStarted = false;
+        tokenIndex = -1;
+        headerCols = [];
         continue;
       }
 
       if (!currentKey) continue;
+
+      if (!line.includes("|")) {
+        const stripped = stripTreePrefix(line);
+        if (!stripped || stripped.startsWith("#")) continue;
+        const headerName = stripped.replace(/:\s*$/u, "");
+        if (isSkillGroupHeader(headerName)) {
+          currentGroup = headerName;
+          continue;
+        }
+        const named = parseNamedTokenLine(stripped);
+        if (named) {
+          sectionItems.get(currentKey)?.push({
+            name: named.name,
+            tokens: named.tokens,
+            group: currentGroup,
+          });
+        }
+        continue;
+      }
 
       const cols = line
         .split("|")
@@ -296,28 +468,57 @@ function parseContextAllOutput(output: string): ContextAllSuccess | null {
       if (cols.length < 2) continue;
 
       if (cols[0].startsWith("-")) {
-        sectionTableStarted = true; // separator row marks end of the table header
+        sectionTableStarted = true;
         continue;
       }
-      if (!sectionTableStarted) continue; // skip the table's own header row
+      if (!sectionTableStarted) {
+        headerCols = cols;
+        tokenIndex = tokenColumnIndex(cols);
+        continue;
+      }
 
-      const name = cols[0];
-      const tokens = parseTokenCount(cols[cols.length - 1]);
+      const name = displayItemName(cols, headerCols);
       if (!name) continue;
 
-      sectionItems.get(currentKey)?.push({ name, tokens });
+      const tokens = tokensFromRow(
+        cols,
+        tokenIndex >= 0 ? tokenIndex : tokenColumnIndex(headerCols),
+      );
+      if (isSkillGroupHeader(name) && tokens === 0) {
+        currentGroup = name;
+        continue;
+      }
+
+      const pathIdx = headerIndex(headerCols, /^path$/i);
+      const serverIdx = headerIndex(headerCols, /^server$/i);
+      const toolIdx = headerIndex(headerCols, /^tool$/i);
+      const sourceIdx = headerIndex(headerCols, /^(source|origin|from)$/i);
+      const sourcePath = pathIdx >= 0 ? cols[pathIdx] : undefined;
+      const sourceCol = sourceIdx >= 0 ? cols[sourceIdx] : undefined;
+
+      sectionItems.get(currentKey)?.push({
+        name,
+        tokens,
+        group: sourceCol || currentGroup || inferSkillGroup(sourcePath),
+        sourcePath,
+        serverName: serverIdx >= 0 ? cols[serverIdx] : undefined,
+        toolId: toolIdx >= 0 ? cols[toolIdx] : undefined,
+      });
     }
   }
 
   // Merge: every category is either a summary row, a detail section, or both.
+  // A summary row of 0 (e.g. deferred MCP tools) must not wipe real per-item counts.
   const keys = new Set<string>([...topCategories.keys(), ...sectionItems.keys()]);
   const categories: ContextCategory[] = [];
   for (const key of keys) {
     const top = topCategories.get(key);
     const items = sectionItems.get(key) ?? [];
     const name = top?.name ?? sectionTitles.get(key) ?? key;
-    const tokens = top?.tokens ?? items.reduce((sum, item) => sum + (item.tokens ?? 0), 0);
-    const pct = top?.percentage ?? (totalTokens > 0 ? (tokens / totalTokens) * 100 : 0);
+    const itemSum = items.reduce((sum, item) => sum + (item.tokens ?? 0), 0);
+    const tokens = top && top.tokens > 0 ? top.tokens : itemSum;
+    const pct =
+      top && top.tokens > 0 ? top.percentage : maxTokens > 0 ? (tokens / maxTokens) * 100 : 0;
     categories.push({ name, tokens, percentage: pct, items });
   }
 
@@ -343,16 +544,154 @@ function parseContextAllOutput(output: string): ContextAllSuccess | null {
   };
 }
 
-export async function getContextAllResponse(): Promise<ContextAllResponse> {
+function isFreeSpace(name: string): boolean {
+  return normalizeCategoryKey(name) === "freespace";
+}
+
+function categoryKind(name: string): "mcp" | "agents" | "memory" | "other" {
+  const key = normalizeCategoryKey(name);
+  if (key === "mcptools") return "mcp";
+  if (key === "customagents" || key === "agents") return "agents";
+  if (key === "memoryfiles" || key === "memory") return "memory";
+  return "other";
+}
+
+async function readEstimatedTokens(filePath: string): Promise<number> {
+  if (!isAbsolute(filePath) || filePath.includes("..")) return 0;
+  try {
+    return estimateTokens(await readFile(filePath, "utf8"));
+  } catch {
+    return 0;
+  }
+}
+
+function estimateMcpToolTokens(item: ContextItem): number {
+  return estimateTokens(
+    JSON.stringify({
+      name: item.toolId ?? item.name,
+      description: item.name,
+      input_schema: { type: "object", properties: {} },
+    }),
+  );
+}
+
+function stripInternalItemFields(item: ContextItem): ContextItem {
+  return { name: item.name, tokens: item.tokens };
+}
+
+function clusterItems(items: ContextItem[]): { groups?: ContextGroup[]; items: ContextItem[] } {
+  const keyFor = (item: ContextItem) => item.group ?? item.serverName;
+  const keyed = items.filter((item) => keyFor(item));
+  if (keyed.length === 0) {
+    return { items: items.map(stripInternalItemFields) };
+  }
+
+  const buckets = new Map<string, ContextItem[]>();
+  const ungrouped: ContextItem[] = [];
+  for (const item of items) {
+    const key = keyFor(item);
+    const clean = stripInternalItemFields(item);
+    if (!key) {
+      ungrouped.push(clean);
+      continue;
+    }
+    const bucket = buckets.get(key) ?? [];
+    bucket.push(clean);
+    buckets.set(key, bucket);
+  }
+
+  const groups = [...buckets.entries()]
+    .map(([name, groupItems]) => ({
+      name,
+      tokens: groupItems.reduce((sum, item) => sum + (item.tokens ?? 0), 0),
+      items: groupItems,
+    }))
+    .sort((a, b) => {
+      const rank = groupSortRank(a.name) - groupSortRank(b.name);
+      return rank !== 0 ? rank : a.name.localeCompare(b.name);
+    });
+
+  return { groups, items: ungrouped };
+}
+
+function attachGroups(parsed: ContextAllSuccess): ContextAllSuccess {
+  return {
+    ...parsed,
+    categories: parsed.categories.map((category) => {
+      const clustered = clusterItems(category.items);
+      const leftover = clustered.items;
+      if (
+        normalizeCategoryKey(category.name) === "skills" &&
+        clustered.groups &&
+        leftover.length > 0
+      ) {
+        clustered.groups = [
+          ...clustered.groups,
+          {
+            name: "Built-in",
+            tokens: leftover.reduce((sum, item) => sum + (item.tokens ?? 0), 0),
+            items: leftover,
+          },
+        ].sort((a, b) => {
+          const rank = groupSortRank(a.name) - groupSortRank(b.name);
+          return rank !== 0 ? rank : a.name.localeCompare(b.name);
+        });
+        clustered.items = [];
+      }
+      return { ...category, ...clustered };
+    }),
+  };
+}
+
+async function fillZeroItem(kind: "mcp" | "agents" | "memory", item: ContextItem): Promise<number> {
+  if ((item.tokens ?? 0) > 0) return item.tokens ?? 0;
+  if (kind === "memory" && item.sourcePath) {
+    item.tokens = await readEstimatedTokens(item.sourcePath);
+  } else if (kind === "agents") {
+    item.tokens = await readEstimatedTokens(join(userClaudeRoot(), "agents", `${item.name}.md`));
+  } else if (kind === "mcp") {
+    item.tokens = estimateMcpToolTokens(item);
+  }
+  return item.tokens ?? 0;
+}
+
+export async function enrichZeroItemTokens(parsed: ContextAllSuccess): Promise<ContextAllSuccess> {
+  let estimated = parsed.is_estimated;
+  let added = 0;
+
+  for (const category of parsed.categories) {
+    const kind = categoryKind(category.name);
+    if (kind === "other") continue;
+    const before = category.items.reduce((sum, item) => sum + (item.tokens ?? 0), 0);
+    const after = (
+      await Promise.all(category.items.map((item) => fillZeroItem(kind, item)))
+    ).reduce((sum, tokens) => sum + tokens, 0);
+    if (after > before) estimated = true;
+    if (after > category.tokens) {
+      added += after - category.tokens;
+      category.tokens = after;
+      category.percentage = parsed.max_tokens > 0 ? (after / parsed.max_tokens) * 100 : 0;
+    }
+  }
+
+  const free = parsed.categories.find((category) => isFreeSpace(category.name));
+  if (free && added > 0) {
+    free.tokens = Math.max(0, free.tokens - added);
+    free.percentage = parsed.max_tokens > 0 ? (free.tokens / parsed.max_tokens) * 100 : 0;
+  }
+
+  return attachGroups({ ...parsed, is_estimated: estimated });
+}
+
+export async function getContextAllResponse(cwd?: string): Promise<ContextAllResponse> {
+  const spawnCwd = cwd ?? process.env.HOME ?? process.cwd();
   return new Promise((resolve) => {
     let stdout = "";
     let stderr = "";
 
-    // cwd: process.env.HOME ensures we fetch global context (from ~/.claude)
-    // not project-scoped context
     const child = spawn("claude", ["/context", "all"], {
-      cwd: process.env.HOME,
-      env: process.env,
+      cwd: spawnCwd,
+      env: { ...process.env, ENABLE_TOOL_SEARCH: "false" },
       timeout: 20_000,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -392,7 +731,7 @@ export async function getContextAllResponse(): Promise<ContextAllResponse> {
         return;
       }
 
-      resolve(parsed);
+      void enrichZeroItemTokens(parsed).then(resolve);
     });
   });
 }

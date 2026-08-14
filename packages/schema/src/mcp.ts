@@ -91,7 +91,7 @@ export const mcpServerResponseSchema = z.object({
   name: z.string(),
   disabled: z.boolean().optional(),
   transport: transportSchema,
-  scope: z.enum(["user", "project"]).describe("Which scope the server is defined in"),
+  scope: z.enum(["user", "project", "local"]).describe("Which scope the server is defined in"),
   health: z
     .enum(["connected", "failed", "unknown"])
     .optional()
@@ -118,14 +118,14 @@ export type McpListResponse = z.infer<typeof mcpListResponseSchema>;
 export const mcpAddRequestSchema = z.object({
   name: z.string().min(1).describe("Unique server identifier"),
   transport: transportSchema,
-  scope: z.enum(["user", "project"]).default("user").optional(),
+  scope: z.enum(["user", "project", "local"]).default("user").optional(),
 });
 
 export type McpAddRequest = z.infer<typeof mcpAddRequestSchema>;
 
 export const mcpRemoveRequestSchema = z.object({
   name: z.string().min(1),
-  scope: z.enum(["user", "project"]).default("user").optional(),
+  scope: z.enum(["user", "project", "local"]).default("user").optional(),
 });
 
 export type McpRemoveRequest = z.infer<typeof mcpRemoveRequestSchema>;

@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve, sep } from "node:path";
-import type { Scope } from "schema";
+import { dirname, isAbsolute, join, resolve, sep } from "node:path";
+import type { Scope, SettingsLayer } from "schema";
 
 export const CATEGORY_IDS = [
   "skills",
@@ -31,13 +31,46 @@ export const CATEGORY_META: CategoryMeta[] = [
   { id: "plugins", label: "Plugins", routeSegment: "plugins" },
 ];
 
-function getRoot(scope: Scope = "user"): string {
-  if (scope === "user") {
-    return resolve(process.env.CLAUDE_ROOT ?? join(homedir(), ".claude"));
-  } else {
-    // project scope: .claude in current working directory
-    return resolve(process.cwd(), ".claude");
+const SETTINGS_LOCAL_FILE = "settings.local.json";
+const SETTINGS_FILE = "settings.json";
+
+export class InvalidProjectDirError extends Error {
+  constructor(message = "projectDir is required and must be an absolute path") {
+    super(message);
+    this.name = "InvalidProjectDirError";
   }
+}
+
+export function userClaudeRoot(): string {
+  return resolve(process.env.CLAUDE_ROOT ?? join(homedir(), ".claude"));
+}
+
+export function requireAbsoluteProjectDir(projectDir?: string): string {
+  if (!projectDir || !isAbsolute(projectDir)) {
+    throw new InvalidProjectDirError();
+  }
+  if (projectDir.split(/[/\\]/).includes("..")) {
+    throw new InvalidProjectDirError("projectDir must not contain path traversal");
+  }
+  return resolve(projectDir);
+}
+
+export type ResolvedRoots = {
+  userRoot: string;
+  projectDir?: string;
+  claudeRoot: string;
+};
+
+export function resolveRoots(input: {
+  scope: Scope | "projectLocal";
+  projectDir?: string;
+}): ResolvedRoots {
+  const userRoot = userClaudeRoot();
+  if (input.scope === "user") {
+    return { userRoot, claudeRoot: userRoot };
+  }
+  const projectDir = requireAbsoluteProjectDir(input.projectDir);
+  return { userRoot, projectDir, claudeRoot: join(projectDir, ".claude") };
 }
 
 function getCategories(root: string): Record<Category, string> {
@@ -46,44 +79,44 @@ function getCategories(root: string): Record<Category, string> {
     plans: resolve(root, "plans"),
     commands: resolve(root, "commands"),
     claudeMd: resolve(root, "CLAUDE.md"),
-    settings: resolve(root, "settings.json"),
+    settings: resolve(root, SETTINGS_FILE),
     agents: resolve(root, "agents"),
     plugins: resolve(root, "plugins"),
   };
 }
 
-/**
- * Check if a project scope exists by verifying .claude directory exists.
- */
-export async function projectScopeExists(): Promise<boolean> {
-  try {
-    const projectRoot = resolve(process.cwd(), ".claude");
-    await stat(projectRoot);
-    return true;
-  } catch {
-    return false;
+function categoryBase(category: Category, scope: Scope, projectDir?: string): string {
+  if (scope === "user") {
+    return getCategories(userClaudeRoot())[category];
   }
+  const dir = requireAbsoluteProjectDir(projectDir);
+  if (category === "claudeMd") {
+    return join(dir, "CLAUDE.md");
+  }
+  return getCategories(join(dir, ".claude"))[category];
 }
 
-export function isCategory(value: string): value is Category {
-  return (CATEGORY_IDS as readonly string[]).includes(value);
+function assertInside(root: string, target: string): void {
+  const resolvedRoot = resolve(root);
+  const resolvedTarget = resolve(target);
+  if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(resolvedRoot + sep)) {
+    throw new Error("path escapes claude root");
+  }
 }
 
 /**
  * Resolve a request to an absolute path, or throw if it escapes the scope root.
- * Supports both user and project scopes.
  */
-export function safePath(category: Category, relative = "", scope: Scope = "user"): string {
-  const root = getRoot(scope);
-  const categories = getCategories(root);
-  const base = categories[category];
-
+export function safePath(
+  category: Category,
+  relative = "",
+  scope: Scope = "user",
+  projectDir?: string,
+): string {
+  const base = categoryBase(category, scope, projectDir);
+  const containment = scope === "user" ? userClaudeRoot() : requireAbsoluteProjectDir(projectDir);
   const target = resolve(base, relative);
-  const rootWithSep = root + sep;
-
-  if (target !== root && !target.startsWith(rootWithSep)) {
-    throw new Error("path escapes claude root");
-  }
+  assertInside(containment, target);
 
   const isFileCategory = category === "claudeMd" || category === "settings";
   if (isFileCategory) {
@@ -98,6 +131,33 @@ export function safePath(category: Category, relative = "", scope: Scope = "user
   }
 
   return target;
+}
+
+export function settingsFilePath(layer: SettingsLayer, projectDir?: string): string {
+  if (layer === "user") {
+    return safePath("settings", "", "user");
+  }
+  const project = requireAbsoluteProjectDir(projectDir);
+  const fileName = layer === "projectLocal" ? SETTINGS_LOCAL_FILE : SETTINGS_FILE;
+  const target = resolve(join(project, ".claude", fileName));
+  assertInside(project, target);
+  return target;
+}
+
+/** True when projectDir is an existing directory (`.claude` is not required). */
+export async function projectScopeExists(projectDir?: string): Promise<boolean> {
+  if (!projectDir) return false;
+  try {
+    await stat(requireAbsoluteProjectDir(projectDir));
+    return true;
+  } catch (error) {
+    if (error instanceof InvalidProjectDirError) throw error;
+    return false;
+  }
+}
+
+export function isCategory(value: string): value is Category {
+  return (CATEGORY_IDS as readonly string[]).includes(value);
 }
 
 async function walkMarkdownFiles(dir: string, prefix = ""): Promise<string[]> {
@@ -146,10 +206,14 @@ async function walkAllFiles(dir: string, prefix = ""): Promise<string[]> {
   return files.sort();
 }
 
-export async function listCategory(category: Category, scope: Scope = "user"): Promise<string[]> {
+export async function listCategory(
+  category: Category,
+  scope: Scope = "user",
+  projectDir?: string,
+): Promise<string[]> {
   if (category === "claudeMd") {
     try {
-      await stat(safePath(category, "", scope));
+      await stat(safePath(category, "", scope, projectDir));
       return ["CLAUDE.md"];
     } catch {
       return [];
@@ -158,26 +222,27 @@ export async function listCategory(category: Category, scope: Scope = "user"): P
 
   if (category === "settings") {
     try {
-      await stat(safePath(category, "", scope));
-      return ["settings.json"];
+      await stat(safePath(category, "", scope, projectDir));
+      return [SETTINGS_FILE];
     } catch {
       return [];
     }
   }
 
   if (category === "plugins") {
-    return walkAllFiles(safePath(category, "", scope));
+    return walkAllFiles(safePath(category, "", scope, projectDir));
   }
 
-  return walkMarkdownFiles(safePath(category, "", scope));
+  return walkMarkdownFiles(safePath(category, "", scope, projectDir));
 }
 
 export async function readFileText(
   category: Category,
   relative: string,
   scope: Scope = "user",
+  projectDir?: string,
 ): Promise<string> {
-  const path = safePath(category, relative, scope);
+  const path = safePath(category, relative, scope, projectDir);
   return readFile(path, "utf8");
 }
 
@@ -186,21 +251,22 @@ export async function writeFileText(
   relative: string,
   content: string,
   scope: Scope = "user",
+  projectDir?: string,
 ): Promise<void> {
-  const path = safePath(category, relative, scope);
-  const dir = path.substring(0, path.lastIndexOf("/"));
-  await mkdir(dir, { recursive: true });
+  const path = safePath(category, relative, scope, projectDir);
+  await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, "utf8");
 }
 
 export async function listAllCategories(
   scope: Scope = "user",
+  projectDir?: string,
 ): Promise<Array<{ category: Category; label: string; files: string[] }>> {
   const results = await Promise.all(
     CATEGORY_META.map(async ({ id, label }) => ({
       category: id,
       label,
-      files: await listCategory(id, scope),
+      files: await listCategory(id, scope, projectDir),
     })),
   );
   return results;

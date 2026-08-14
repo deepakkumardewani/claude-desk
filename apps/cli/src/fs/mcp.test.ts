@@ -426,7 +426,7 @@ describe("Phase 1 — getMergedMcpServers", () => {
       });
       const servers = await getMergedMcpServers({
         claudeJsonPath,
-        cwd: "/fake/cwd",
+        projectDir: "/fake/cwd",
         cliRunner: async () => syntheticCliOutput,
       });
       const plugin = servers.find((s) => s.name === "plugin-only-server");
@@ -451,7 +451,7 @@ describe("Phase 1 — getMergedMcpServers", () => {
       const stubbedRunner = async () => CLAUDE_MCP_LIST_FIXTURE;
       const servers = await getMergedMcpServers({
         claudeJsonPath,
-        cwd: "/fake/cwd",
+        projectDir: "/fake/cwd",
         cliRunner: stubbedRunner,
       });
       const matches = servers.filter((s) => s.name === "chrome-devtools");
@@ -476,7 +476,7 @@ describe("Phase 1 — getMergedMcpServers", () => {
       });
       const servers = await getMergedMcpServers({
         claudeJsonPath,
-        cwd,
+        projectDir: cwd,
         cliRunner: async () => "",
       });
       const s = servers.find((x) => x.name === "shared-server");

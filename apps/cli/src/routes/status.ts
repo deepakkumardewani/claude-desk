@@ -128,9 +128,8 @@ async function getMcpConfigStatus(): Promise<StatusItem> {
     return {
       id: "mcp-config",
       label: "MCP Configuration",
-      status: "warn",
-      message: "No MCP servers configured",
-      fixRoute: "/mcp",
+      status: "ok",
+      message: "None configured",
     };
   } catch {
     return {
@@ -166,9 +165,8 @@ async function getPluginsStatus(): Promise<StatusItem> {
     return {
       id: "plugins",
       label: "Plugins",
-      status: "warn",
+      status: "ok",
       message: "No plugins enabled",
-      fixRoute: "/settings",
     };
   } catch {
     return {

@@ -4,6 +4,9 @@ import { join, resolve } from "node:path";
 import { getSettingsFieldMetadata } from "schema";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { createApp } from "../server.js";
+
+const TEST_TOKEN = "a".repeat(64);
+const AUTH = { Authorization: `Bearer ${TEST_TOKEN}` };
 import { getBackups } from "../fs/backups.js";
 
 let fixtureRoot = "";
@@ -34,8 +37,8 @@ afterEach(async () => {
 
 describe("/api/settings/schema", () => {
   test("lists every schema field", async () => {
-    const app = createApp();
-    const response = await app.request("/api/settings/schema");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/settings/schema", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { fields: Array<{ key: string }> };
@@ -54,8 +57,8 @@ describe("/api/settings", () => {
       JSON.stringify({ model: "opus", alwaysThinkingEnabled: false, effortLevel: "high" }),
     );
 
-    const app = createApp();
-    const response = await app.request("/api/settings");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/settings", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as {
@@ -67,8 +70,8 @@ describe("/api/settings", () => {
   });
 
   test("returns empty default when settings file is missing", async () => {
-    const app = createApp();
-    const response = await app.request("/api/settings");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/settings", { headers: AUTH });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ settings: {} });
   });
@@ -76,8 +79,8 @@ describe("/api/settings", () => {
   test("returns 422 for invalid settings content", async () => {
     await writeFile(join(fixtureRoot, "settings.json"), JSON.stringify({ effortLevel: "turbo" }));
 
-    const app = createApp();
-    const response = await app.request("/api/settings");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/settings", { headers: AUTH });
     expect(response.status).toBe(422);
     const body = (await response.json()) as { error: string; issues?: unknown[] };
     expect(body.error).toBe("invalid settings.json");
@@ -87,8 +90,8 @@ describe("/api/settings", () => {
   test("returns 422 for malformed JSON", async () => {
     await writeFile(join(fixtureRoot, "settings.json"), "{not-json");
 
-    const app = createApp();
-    const response = await app.request("/api/settings");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/settings", { headers: AUTH });
     expect(response.status).toBe(422);
     expect((await response.json()) as { error: string }).toEqual({
       error: "invalid JSON in settings.json",
@@ -103,10 +106,10 @@ describe("PUT /api/settings", () => {
       JSON.stringify({ model: "opus", effortLevel: "high" }),
     );
 
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/settings", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({ effortLevel: "turbo" }),
     });
 
@@ -125,10 +128,10 @@ describe("PUT /api/settings", () => {
     const settingsPath = join(fixtureRoot, "settings.json");
     await writeFile(settingsPath, JSON.stringify({ model: "opus", alwaysThinkingEnabled: true }));
 
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/settings", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "sonnet", effortLevel: "low", alwaysThinkingEnabled: false }),
     });
 
@@ -152,10 +155,10 @@ describe("PUT /api/settings", () => {
   });
 
   test("returns 400 for malformed request body", async () => {
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/settings", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: "{not-json",
     });
 

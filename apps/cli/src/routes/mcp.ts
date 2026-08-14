@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import type { Scope } from "schema";
+import type { McpScope } from "schema";
 import { mcpListResponseSchema, mcpAddRequestSchema, mcpHealthCheckResponseSchema } from "schema";
 import {
   readMcpConfig,
@@ -11,22 +11,13 @@ import {
   type MergedMcpServer,
 } from "../fs/mcp.js";
 import { queryMcpHealth, type McpHealthResult } from "../fs/mcpHealth.js";
+import { isInvalidProjectDir, parseMcpScope, projectDirForLayer } from "./scopeQuery.js";
 
 export const mcpRoute = new Hono();
 
 const PLUGIN_WRITE_BLOCKED =
   "Server is plugin-origin and read-only. Remove or edit it via the Claude plugin that provides it.";
 
-/** Map Claude "local" scope onto the API's project/user enum. */
-function toApiScope(scope: Scope | "local"): Scope {
-  return scope === "local" ? "project" : scope;
-}
-
-/**
- * Build a transport object from a MergedMcpServer's flat claude.json fields.
- * Plugin-origin servers have no config — use a stdio placeholder so the response
- * schema (transport required) still parses.
- */
 function transportFromMerged(server: MergedMcpServer) {
   const type = server.type ?? (server.url ? "http" : server.command ? "stdio" : undefined);
 
@@ -45,7 +36,6 @@ function transportFromMerged(server: MergedMcpServer) {
     };
   }
 
-  // Plugin-origin (or incomplete file entry) — schema requires a transport
   return { type: "stdio" as const, command: "(plugin-managed)" };
 }
 
@@ -62,33 +52,40 @@ function responseFromMerged(server: MergedMcpServer, health: McpHealthResult) {
     name: server.name,
     disabled: false,
     transport: transportFromMerged(server),
-    scope: toApiScope(server.scope),
+    scope: server.scope,
     origin: server.origin,
     editable: server.editable,
     ...healthFields(health, server.name),
   };
 }
 
-async function isPluginOrigin(name: string): Promise<boolean> {
-  const merged = await getMergedMcpServers();
+function mcpProjectDir(c: Context, scope: McpScope): string | undefined {
+  return projectDirForLayer(scope, c.req.query("projectDir"));
+}
+
+async function isPluginOrigin(name: string, projectDir?: string): Promise<boolean> {
+  const merged = await getMergedMcpServers({ projectDir });
   return merged.some((s) => s.name === name && s.origin === "plugin");
 }
 
-/**
- * GET /api/mcp
- * Merged list: .mcp.json + ~/.claude.json (user/local) + plugin-origin, with health.
- */
+function jsonError(c: Context, error: unknown, fallback: string) {
+  if (isInvalidProjectDir(error)) {
+    return c.json({ error: error.message }, 400);
+  }
+  const message = error instanceof Error ? error.message : fallback;
+  return c.json({ error: message }, 500);
+}
+
 mcpRoute.get("/", async (c: Context) => {
   try {
+    const projectDirRaw = c.req.query("projectDir");
+    const projectDir = projectDirRaw ? projectDirForLayer("project", projectDirRaw) : undefined;
     const [merged, mcpJsonServers, health] = await Promise.all([
-      getMergedMcpServers(),
-      getAllMcpServers(),
+      getMergedMcpServers({ projectDir }),
+      getAllMcpServers(projectDir),
       queryMcpHealth(),
     ]);
 
-    // Seed with .mcp.json (project/user file scope), then overlay ~/.claude.json + plugins.
-    // File-sourced entries from merge overwrite .mcp.json for the same name; plugins only
-    // appear when absent from every file source (handled inside getMergedMcpServers).
     const byName = new Map<string, ReturnType<typeof responseFromMerged>>();
 
     for (const [name, { server, scope }] of Object.entries(mcpJsonServers)) {
@@ -96,7 +93,7 @@ mcpRoute.get("/", async (c: Context) => {
         name,
         disabled: server.disabled ?? false,
         transport: server.transport,
-        scope: scope as Scope,
+        scope,
         origin: "file",
         editable: true,
         ...healthFields(health, name),
@@ -106,7 +103,6 @@ mcpRoute.get("/", async (c: Context) => {
     for (const server of merged) {
       const existing = byName.get(server.name);
       if (existing && server.origin === "plugin") {
-        // File source already owns this name — keep file config, skip plugin tag
         continue;
       }
       byName.set(server.name, responseFromMerged(server, health));
@@ -118,15 +114,10 @@ mcpRoute.get("/", async (c: Context) => {
 
     return c.json(response, 200);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to list MCP servers";
-    return c.json({ error: message }, 500);
+    return jsonError(c, error, "Failed to list MCP servers");
   }
 });
 
-/**
- * POST /api/mcp
- * Add a new MCP server (file-origin only; plugin names are rejected).
- */
 mcpRoute.post("/", async (c: Context) => {
   try {
     const body = await c.req.json();
@@ -137,17 +128,18 @@ mcpRoute.post("/", async (c: Context) => {
     }
 
     const { name, transport, scope = "user" } = result.data;
+    const projectDir = mcpProjectDir(c, scope);
 
-    if (await isPluginOrigin(name)) {
+    if (await isPluginOrigin(name, projectDir)) {
       return c.json({ error: PLUGIN_WRITE_BLOCKED }, 403);
     }
 
-    const config = await readMcpConfig(scope);
+    const config = await readMcpConfig(scope, projectDir);
     if (config.mcpServers[name]) {
       return c.json({ error: `Server "${name}" already exists in ${scope} scope` }, 400);
     }
 
-    await addMcpServer(name, { transport }, scope);
+    await addMcpServer(name, { transport }, scope, undefined, projectDir);
 
     return c.json(
       {
@@ -161,35 +153,34 @@ mcpRoute.post("/", async (c: Context) => {
       201,
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to add MCP server";
-    return c.json({ error: message }, 500);
+    return jsonError(c, error, "Failed to add MCP server");
   }
 });
 
-/**
- * DELETE /api/mcp/:name
- * Remove an MCP server (blocked for plugin-origin names).
- */
 mcpRoute.delete("/:name", async (c: Context) => {
   try {
     const name = c.req.param("name");
     if (!name) {
       return c.json({ error: "Server name is required" }, 400);
     }
-    const scope = (c.req.query("scope") || "user") as Scope;
-
-    if (scope !== "user" && scope !== "project") {
-      return c.json({ error: "Invalid scope. Must be 'user' or 'project'" }, 400);
+    const scope = parseMcpScope(c.req.query("scope") || "user");
+    if (!scope) {
+      return c.json({ error: "Invalid scope. Must be 'user', 'project', or 'local'" }, 400);
     }
 
-    if (await isPluginOrigin(name)) {
+    const projectDir = mcpProjectDir(c, scope);
+
+    if (await isPluginOrigin(name, projectDir)) {
       return c.json({ error: PLUGIN_WRITE_BLOCKED }, 403);
     }
 
-    await removeMcpServer(name, scope);
+    await removeMcpServer(name, scope, undefined, projectDir);
 
     return c.json({ success: true }, 200);
   } catch (error) {
+    if (isInvalidProjectDir(error)) {
+      return c.json({ error: error.message }, 400);
+    }
     const message = error instanceof Error ? error.message : "Failed to remove MCP server";
     if (message.includes("not found")) {
       return c.json({ error: message }, 404);
@@ -198,10 +189,6 @@ mcpRoute.delete("/:name", async (c: Context) => {
   }
 });
 
-/**
- * GET /api/mcp/health
- * Live re-check via `claude mcp list` (Phase 2).
- */
 mcpRoute.get("/health", async (c: Context) => {
   try {
     const { status: serverHealth } = await queryMcpHealth();

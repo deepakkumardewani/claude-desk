@@ -3,14 +3,19 @@ import {
   getSettingsFieldMetadata,
   parseSettings,
   safeParseSettings,
-  type Scope,
+  type SettingsLayer,
 } from "schema";
-import { readFileText } from "../fs/scoped.js";
+import { readFile } from "node:fs/promises";
+import { readFileText, settingsFilePath } from "../fs/scoped.js";
 import { writeSettings } from "../fs/writeSettings.js";
+import { isInvalidProjectDir } from "./scopeQuery.js";
 
-export async function getSettingsResponse(scope: Scope = "user") {
+export async function getSettingsResponse(layer: SettingsLayer = "user", projectDir?: string) {
   try {
-    const raw = await readFileText("settings", "", scope);
+    const raw =
+      layer === "projectLocal"
+        ? await readFile(settingsFilePath(layer, projectDir), "utf8")
+        : await readFileText("settings", "", layer === "user" ? "user" : "project", projectDir);
     const parsedJson = JSON.parse(raw) as unknown;
     const result = safeParseSettings(parsedJson);
 
@@ -26,6 +31,9 @@ export async function getSettingsResponse(scope: Scope = "user") {
       body: { settings: result.data },
     };
   } catch (error) {
+    if (isInvalidProjectDir(error)) {
+      return { status: 400 as const, body: { error: error.message } };
+    }
     const message = error instanceof Error ? error.message : "unable to read settings";
     if (message.includes("ENOENT") || message.includes("file not found")) {
       return {
@@ -56,18 +64,29 @@ export function parseSettingsForTest(input: unknown) {
   return parseSettings(input);
 }
 
-export async function putSettingsResponse(body: unknown, scope: Scope = "user") {
-  const result = await writeSettings(body, scope);
+export async function putSettingsResponse(
+  body: unknown,
+  layer: SettingsLayer = "user",
+  projectDir?: string,
+) {
+  try {
+    const result = await writeSettings(body, layer, projectDir);
 
-  if (!result.success) {
+    if (!result.success) {
+      return {
+        status: 400 as const,
+        body: { error: "invalid settings", issues: result.issues },
+      };
+    }
+
     return {
-      status: 400 as const,
-      body: { error: "invalid settings", issues: result.issues },
+      status: 200 as const,
+      body: { settings: result.settings },
     };
+  } catch (error) {
+    if (isInvalidProjectDir(error)) {
+      return { status: 400 as const, body: { error: error.message } };
+    }
+    throw error;
   }
-
-  return {
-    status: 200 as const,
-    body: { settings: result.settings },
-  };
 }

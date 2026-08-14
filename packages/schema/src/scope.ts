@@ -1,84 +1,94 @@
 import { ClaudeSettings } from "./index.js";
 
 /**
- * Configuration scope — where a setting is defined.
- * - user: ~/.claude/settings.json
- * - project: ./.claude/settings.json (project-local)
+ * File/resource scope — where a markdown or category file lives.
+ * - user: ~/.claude/...
+ * - project: <projectDir>/.claude/... (CLAUDE.md at project root)
  */
 export type Scope = "user" | "project";
 
-/**
- * Metadata about a configuration value's origin and effective value.
- */
+/** Settings files: user settings.json, project settings.json, project settings.local.json */
+export type SettingsLayer = Scope | "projectLocal";
+
+/** MCP config origin: user (~/.claude.json), project (.mcp.json), local (projects[dir] in ~/.claude.json) */
+export type McpScope = Scope | "local";
+
 export interface EffectiveValue<T = unknown> {
   value: T;
-  scope: Scope;
+  scope: SettingsLayer;
 }
 
-/**
- * Configuration with per-key scope tracking.
- * Includes the merged effective settings and metadata about each value's origin.
- */
 export interface MergedSettings {
   effective: ClaudeSettings;
-  scopeMap: Record<string, Scope>;
+  scopeMap: Record<string, SettingsLayer>;
+}
+
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+const LAYER_PRECEDENCE: SettingsLayer[] = ["user", "project", "projectLocal"];
+
+function isMergeableObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assignLeaf(
+  effective: Record<string, unknown>,
+  sources: Record<string, SettingsLayer>,
+  path: string[],
+  value: unknown,
+  layer: SettingsLayer,
+): void {
+  let cursor = effective;
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = path[i];
+    if (!isMergeableObject(cursor[key])) {
+      cursor[key] = {};
+    }
+    cursor = cursor[key] as Record<string, unknown>;
+  }
+  cursor[path[path.length - 1]] = value;
+  sources[path.join(".")] = layer;
+}
+
+function applyObject(
+  effective: Record<string, unknown>,
+  sources: Record<string, SettingsLayer>,
+  obj: Record<string, unknown>,
+  layer: SettingsLayer,
+  path: string[],
+): void {
+  for (const [key, value] of Object.entries(obj)) {
+    if (DANGEROUS_KEYS.has(key)) continue;
+    const nextPath = [...path, key];
+    if (isMergeableObject(value)) {
+      applyObject(effective, sources, value, layer, nextPath);
+      continue;
+    }
+    assignLeaf(effective, sources, nextPath, value, layer);
+  }
 }
 
 /**
- * Merge settings layers with scope tracking.
- *
- * Precedence: project > user (project overrides user)
- *
- * Returns the merged effective configuration and a map of each top-level key
- * to its originating scope.
- *
- * @param layers - Settings from each scope, keyed by scope name
- * @returns Merged settings with effective config and per-key scope tracking
+ * Merge settings layers with leaf-level source tracking.
+ * Precedence (low → high): user, project, projectLocal.
  */
-export function mergeSettings(layers: Partial<Record<Scope, ClaudeSettings>>): MergedSettings {
-  const effective: ClaudeSettings = {};
-  const scopeMap: Record<string, Scope> = {};
+export function mergeSettings(
+  layers: Partial<Record<SettingsLayer, ClaudeSettings>>,
+): MergedSettings {
+  const effective: Record<string, unknown> = {};
+  const scopeMap: Record<string, SettingsLayer> = {};
 
-  // Precedence: user first (lowest priority)
-  const precedence: Scope[] = ["user", "project"];
-
-  for (const scope of precedence) {
-    const settings = layers[scope];
+  for (const layer of LAYER_PRECEDENCE) {
+    const settings = layers[layer];
     if (!settings) continue;
-
-    for (const [key, value] of Object.entries(settings)) {
-      // For objects (nested settings), merge them recursively
-      if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-        const existing = effective[key as keyof ClaudeSettings];
-        if (typeof existing === "object" && existing !== null && !Array.isArray(existing)) {
-          // Merge nested objects
-          effective[key as keyof ClaudeSettings] = {
-            ...existing,
-            ...value,
-          } as any;
-        } else {
-          effective[key as keyof ClaudeSettings] = value as any;
-        }
-      } else {
-        // For primitives and arrays, overwrite
-        effective[key as keyof ClaudeSettings] = value as any;
-      }
-
-      // Track which scope provided this key (later scopes override)
-      scopeMap[key] = scope;
-    }
+    applyObject(effective, scopeMap, settings as Record<string, unknown>, layer, []);
   }
 
-  return {
-    effective,
-    scopeMap,
-  };
+  return { effective: effective as ClaudeSettings, scopeMap };
 }
 
-/**
- * Get the scope origin for a specific setting key.
- * Returns undefined if the key is not set in any layer.
- */
-export function getSettingScope(scopeMap: Record<string, Scope>, key: string): Scope | undefined {
+export function getSettingScope(
+  scopeMap: Record<string, SettingsLayer>,
+  key: string,
+): SettingsLayer | undefined {
   return scopeMap[key];
 }

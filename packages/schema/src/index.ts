@@ -206,6 +206,8 @@ export {
   mergeSettings,
   getSettingScope,
   type Scope,
+  type SettingsLayer,
+  type McpScope,
   type EffectiveValue,
   type MergedSettings,
 } from "./scope.js";

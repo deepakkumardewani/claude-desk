@@ -1,11 +1,13 @@
 import { isCategory, readFileText, writeFileText, safePath } from "../fs/scoped.js";
 import { backupFile } from "../fs/backups.js";
 import type { Scope } from "schema";
+import { isInvalidProjectDir } from "./scopeQuery.js";
 
 export async function getFileResponse(
   categoryParam: string,
   nameParam: string,
   scope: Scope = "user",
+  projectDir?: string,
 ) {
   if (!isCategory(categoryParam)) {
     return { status: 400 as const, body: { error: "invalid category" } };
@@ -18,7 +20,7 @@ export async function getFileResponse(
 
   try {
     const relative = categoryParam === "claudeMd" || categoryParam === "settings" ? "" : name;
-    const content = await readFileText(categoryParam, relative, scope);
+    const content = await readFileText(categoryParam, relative, scope, projectDir);
     return {
       status: 200 as const,
       body: {
@@ -28,6 +30,9 @@ export async function getFileResponse(
       },
     };
   } catch (error) {
+    if (isInvalidProjectDir(error)) {
+      return { status: 400 as const, body: { error: error.message } };
+    }
     const message = error instanceof Error ? error.message : "unable to read file";
     if (message.includes("path escapes")) {
       return { status: 403 as const, body: { error: "forbidden path" } };
@@ -41,6 +46,7 @@ export async function postFileResponse(
   nameParam: string,
   content: string,
   scope: Scope = "user",
+  projectDir?: string,
 ) {
   if (!isCategory(categoryParam)) {
     return { status: 400 as const, body: { error: "invalid category" } };
@@ -61,12 +67,10 @@ export async function postFileResponse(
 
   try {
     const relative = categoryParam === "claudeMd" ? "" : name;
-    const filePath = safePath(categoryParam, relative, scope);
+    const filePath = safePath(categoryParam, relative, scope, projectDir);
 
-    // Back up the current version before writing
     await backupFile(filePath);
-
-    await writeFileText(categoryParam, relative, content, scope);
+    await writeFileText(categoryParam, relative, content, scope, projectDir);
     return {
       status: 200 as const,
       body: {
@@ -76,6 +80,9 @@ export async function postFileResponse(
       },
     };
   } catch (error) {
+    if (isInvalidProjectDir(error)) {
+      return { status: 400 as const, body: { error: error.message } };
+    }
     const message = error instanceof Error ? error.message : "unable to write file";
     if (message.includes("path escapes")) {
       return { status: 403 as const, body: { error: "forbidden path" } };

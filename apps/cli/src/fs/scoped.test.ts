@@ -142,28 +142,16 @@ describe("writeFileText", () => {
 });
 
 describe("projectScopeExists", () => {
-  test("returns false when .claude does not exist", async () => {
-    // fixtureRoot is a fresh temp dir with no .claude subdirectory
-    const oldCwd = process.cwd();
-    try {
-      process.chdir(fixtureRoot);
-      const exists = await projectScopeExists();
-      expect(exists).toBe(false);
-    } finally {
-      process.chdir(oldCwd);
-    }
+  test("returns false when projectDir is omitted", async () => {
+    expect(await projectScopeExists()).toBe(false);
   });
 
-  test("returns true when .claude exists", async () => {
-    const oldCwd = process.cwd();
-    try {
-      process.chdir(fixtureRoot);
-      await mkdir(join(fixtureRoot, ".claude", "skills"), { recursive: true });
-      const exists = await projectScopeExists();
-      expect(exists).toBe(true);
-    } finally {
-      process.chdir(oldCwd);
-    }
+  test("returns true when projectDir exists even without .claude", async () => {
+    expect(await projectScopeExists(fixtureRoot)).toBe(true);
+  });
+
+  test("returns false when projectDir does not exist", async () => {
+    expect(await projectScopeExists(join(fixtureRoot, "missing-project"))).toBe(false);
   });
 });
 
@@ -176,19 +164,12 @@ describe("scope support", () => {
   });
 
   test("listCategory works with project scope", async () => {
-    const oldCwd = process.cwd();
-    try {
-      process.chdir(fixtureRoot);
-      const projectRoot = join(fixtureRoot, ".claude");
-      await mkdir(join(projectRoot, "skills", "proj"), { recursive: true });
-      await writeFile(join(projectRoot, "skills", "proj", "PROJECT.md"), "# Project Skill");
+    const projectDir = fixtureRoot;
+    const projectRoot = join(projectDir, ".claude");
+    await mkdir(join(projectRoot, "skills", "proj"), { recursive: true });
+    await writeFile(join(projectRoot, "skills", "proj", "PROJECT.md"), "# Project Skill");
 
-      // Note: we need to set up the project scope root properly
-      // For now, just verify the safePath function accepts scope parameter
-      const path = safePath("skills", "", "project");
-      expect(path).toContain(".claude");
-    } finally {
-      process.chdir(oldCwd);
-    }
+    expect(safePath("skills", "", "project", projectDir)).toBe(join(projectRoot, "skills"));
+    expect(safePath("claudeMd", "", "project", projectDir)).toBe(join(projectDir, "CLAUDE.md"));
   });
 });

@@ -4,6 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { createApp } from "../server.js";
 
+const TEST_TOKEN = "a".repeat(64);
+const AUTH = { Authorization: `Bearer ${TEST_TOKEN}` };
+
 let fixtureRoot = "";
 let previousRoot: string | undefined;
 
@@ -26,8 +29,8 @@ afterEach(async () => {
 
 describe("/api/skills", () => {
   test("returns skills sorted alphabetically with default value 'on'", async () => {
-    const app = createApp();
-    const response = await app.request("/api/skills");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/skills", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as {
@@ -47,8 +50,8 @@ describe("/api/skills", () => {
       JSON.stringify({ skillOverrides: { colorize: "off" } }),
     );
 
-    const app = createApp();
-    const response = await app.request("/api/skills");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/skills", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as {
@@ -65,8 +68,8 @@ describe("/api/skills", () => {
   test("returns empty list when skills directory is absent", async () => {
     await rm(join(fixtureRoot, "skills"), { recursive: true, force: true });
 
-    const app = createApp();
-    const response = await app.request("/api/skills");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/skills", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { skills: unknown[] };

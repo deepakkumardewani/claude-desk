@@ -4,6 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { createApp } from "../server.js";
 
+const TEST_TOKEN = "a".repeat(64);
+const AUTH = { Authorization: `Bearer ${TEST_TOKEN}` };
+
 let fixtureRoot = "";
 let previousRoot: string | undefined;
 
@@ -24,8 +27,8 @@ afterEach(async () => {
 
 describe("/api/tree", () => {
   test("returns all seven categories including agents and plugins", async () => {
-    const app = createApp();
-    const response = await app.request("/api/tree");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/tree", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as {
@@ -59,8 +62,8 @@ describe("/api/tree", () => {
     await fs.mkdir(path.join(fixtureRoot, "agents"), { recursive: true });
     await fs.writeFile(path.join(fixtureRoot, "agents", "my-agent.md"), "# My Agent");
 
-    const app = createApp();
-    const response = await app.request("/api/tree");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/tree", { headers: AUTH });
     const body = (await response.json()) as {
       categories: Array<{ category: string; files: Array<{ name: string }> }>;
     };
@@ -76,10 +79,10 @@ describe("POST /api/file", () => {
     const path = await import("node:path");
     await fs.mkdir(path.join(fixtureRoot, "agents"), { recursive: true });
 
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/file?category=agents&name=my-agent.md", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "# My Agent" }),
     });
 
@@ -95,10 +98,10 @@ describe("POST /api/file", () => {
     const path = await import("node:path");
     await fs.mkdir(path.join(fixtureRoot, "skills"), { recursive: true });
 
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/file?category=skills&name=my-skill.md", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "# My Skill" }),
     });
 
@@ -106,10 +109,10 @@ describe("POST /api/file", () => {
   });
 
   test("returns 400 for invalid category", async () => {
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/file?category=invalid&name=foo.md", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "test" }),
     });
     expect(response.status).toBe(400);
@@ -117,20 +120,20 @@ describe("POST /api/file", () => {
   });
 
   test("returns 400 for settings category", async () => {
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/file?category=settings&name=", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({ content: '{"model":"opus"}' }),
     });
     expect(response.status).toBe(400);
   });
 
   test("returns 403 for traversal attempts", async () => {
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/file?category=agents&name=..%2F..%2Fetc%2Fpasswd", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "evil" }),
     });
     expect(response.status).toBe(403);
@@ -139,8 +142,10 @@ describe("POST /api/file", () => {
 
 describe("/api/file", () => {
   test("returns markdown content for a valid file", async () => {
-    const app = createApp();
-    const response = await app.request("/api/file?category=skills&name=alpha.md");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/file?category=skills&name=alpha.md", {
+      headers: AUTH,
+    });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { content: string; category: string; name: string };
@@ -150,30 +155,38 @@ describe("/api/file", () => {
   });
 
   test("returns claudeMd without a name", async () => {
-    const app = createApp();
-    const response = await app.request("/api/file?category=claudeMd&name=");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/file?category=claudeMd&name=", {
+      headers: AUTH,
+    });
     expect(response.status).toBe(200);
     const body = (await response.json()) as { content: string };
     expect(body.content).toBe("# Claude");
   });
 
   test("returns 400 for invalid category", async () => {
-    const app = createApp();
-    const response = await app.request("/api/file?category=cache&name=secret.db");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/file?category=cache&name=secret.db", {
+      headers: AUTH,
+    });
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "invalid category" });
   });
 
   test("returns 403 for traversal attempts", async () => {
-    const app = createApp();
-    const response = await app.request("/api/file?category=skills&name=..%2F..%2Fetc%2Fpasswd");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/file?category=skills&name=..%2F..%2Fetc%2Fpasswd", {
+      headers: AUTH,
+    });
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "forbidden path" });
   });
 
   test("returns 404 for missing files", async () => {
-    const app = createApp();
-    const response = await app.request("/api/file?category=skills&name=missing.md");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/file?category=skills&name=missing.md", {
+      headers: AUTH,
+    });
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "file not found" });
   });

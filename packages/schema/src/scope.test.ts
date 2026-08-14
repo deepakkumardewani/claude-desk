@@ -85,7 +85,9 @@ describe("mergeSettings", () => {
       CUSTOM_VAR: "value", // from project
     });
 
-    expect(result.scopeMap.env).toBe("project");
+    expect(result.scopeMap["env.DEBUG"]).toBe("project");
+    expect(result.scopeMap["env.LOG_LEVEL"]).toBe("user");
+    expect(result.scopeMap["env.CUSTOM_VAR"]).toBe("project");
   });
 
   it("handles merging nested objects with no user layer", () => {
@@ -100,7 +102,7 @@ describe("mergeSettings", () => {
     expect(result.effective.env).toEqual({
       DEBUG: "true",
     });
-    expect(result.scopeMap.env).toBe("project");
+    expect(result.scopeMap["env.DEBUG"]).toBe("project");
   });
 
   it("handles array values by replacing (not merging)", () => {
@@ -133,6 +135,20 @@ describe("mergeSettings", () => {
     expect(result.effective.fastMode).toBe(false);
     expect(result.scopeMap.autoMemoryEnabled).toBe("project");
     expect(result.scopeMap.fastMode).toBe("user");
+  });
+
+  it("applies projectLocal over project and user", () => {
+    const result = mergeSettings({
+      user: { model: "user-model", env: { A: "1" } },
+      project: { model: "project-model", env: { A: "2", B: "2" } },
+      projectLocal: { env: { B: "3" } },
+    });
+
+    expect(result.effective.model).toBe("project-model");
+    expect(result.effective.env).toEqual({ A: "2", B: "3" });
+    expect(result.scopeMap.model).toBe("project");
+    expect(result.scopeMap["env.A"]).toBe("project");
+    expect(result.scopeMap["env.B"]).toBe("projectLocal");
   });
 });
 

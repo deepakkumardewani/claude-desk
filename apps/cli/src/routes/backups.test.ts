@@ -3,6 +3,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { createApp } from "../server.js";
+
+const TEST_TOKEN = "a".repeat(64);
+const AUTH = { Authorization: `Bearer ${TEST_TOKEN}` };
 import { backupFile } from "../fs/backups.js";
 
 let fixtureRoot = "";
@@ -22,8 +25,8 @@ afterEach(async () => {
 
 describe("GET /api/backups", () => {
   test("returns empty list when no backups exist", async () => {
-    const app = createApp();
-    const response = await app.request("/api/backups");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/backups", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { files: unknown[] };
@@ -34,8 +37,8 @@ describe("GET /api/backups", () => {
     // The backups endpoint lists files from the categories that have backups
     // Since we're testing in isolation without creating files in proper category dirs,
     // just verify the endpoint works and returns an empty list initially
-    const app = createApp();
-    const response = await app.request("/api/backups");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/backups", { headers: AUTH });
 
     expect(response.status).toBe(200);
 
@@ -47,10 +50,10 @@ describe("GET /api/backups", () => {
 
 describe("POST /api/backups/restore", () => {
   test("returns 400 for missing backupId", async () => {
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/backups/restore", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({ originalPath: "/some/path" }),
     });
 
@@ -60,10 +63,10 @@ describe("POST /api/backups/restore", () => {
   });
 
   test("returns 400 for missing originalPath", async () => {
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/backups/restore", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({ backupId: "some-id" }),
     });
 
@@ -73,10 +76,10 @@ describe("POST /api/backups/restore", () => {
   });
 
   test("returns 400 for malformed JSON", async () => {
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/backups/restore", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: "{not-json",
     });
 
@@ -86,13 +89,13 @@ describe("POST /api/backups/restore", () => {
   });
 
   test("returns 404 for invalid backup id", async () => {
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     await mkdir(join(fixtureRoot, "plans"), { recursive: true });
     await writeFile(join(fixtureRoot, "plans", "test.md"), "# Test");
 
     const response = await app.request("/api/backups/restore", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({
         backupId: "invalid-id.bak",
         originalPath: "Plans/test.md",
@@ -124,10 +127,10 @@ describe("POST /api/backups/restore", () => {
     await writeFile(filePath, "modified content");
 
     // Restore the backup
-    const app = createApp();
+    const app = createApp({ token: TEST_TOKEN });
     const response = await app.request("/api/backups/restore", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({
         backupId,
         originalPath: "Plans/test.md",

@@ -3,6 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test, beforeEach, afterEach, vi } from "vite-plus/test";
 import { createApp } from "../server.js";
+
+const TEST_TOKEN = "a".repeat(64);
+const AUTH = { Authorization: `Bearer ${TEST_TOKEN}` };
 import type { StatusItem } from "schema";
 
 let fixtureRoot = "";
@@ -32,8 +35,8 @@ describe("GET /api/status", () => {
     );
     await writeFile(join(fixtureRoot, "CLAUDE.md"), "# CLAUDE Instructions\n");
 
-    const app = createApp();
-    const response = await app.request("/api/status");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/status", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { allOk: boolean; items: StatusItem[] };
@@ -48,8 +51,8 @@ describe("GET /api/status", () => {
   });
 
   test("warns when settings.json is missing", async () => {
-    const app = createApp();
-    const response = await app.request("/api/status");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/status", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { items: StatusItem[] };
@@ -61,8 +64,8 @@ describe("GET /api/status", () => {
   test("warns when CLAUDE.md is missing", async () => {
     await writeFile(join(fixtureRoot, "settings.json"), JSON.stringify({ model: "opus" }));
 
-    const app = createApp();
-    const response = await app.request("/api/status");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/status", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { items: StatusItem[] };
@@ -71,21 +74,22 @@ describe("GET /api/status", () => {
     expect(claudeMdItem?.fixRoute).toBe("/claude-md");
   });
 
-  test("warns when MCP is not configured", async () => {
+  test("reports ok when MCP is not configured", async () => {
     await writeFile(join(fixtureRoot, "settings.json"), JSON.stringify({ model: "opus" }));
     await writeFile(join(fixtureRoot, "CLAUDE.md"), "# CLAUDE Instructions\n");
 
-    const app = createApp();
-    const response = await app.request("/api/status");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/status", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { items: StatusItem[] };
     const mcpItem = body.items.find((item) => item.id === "mcp-config");
-    expect(mcpItem?.status).toBe("warn");
-    expect(mcpItem?.fixRoute).toBe("/mcp");
+    expect(mcpItem?.status).toBe("ok");
+    expect(mcpItem?.message).toBe("None configured");
+    expect(mcpItem?.fixRoute).toBeUndefined();
   });
 
-  test("warns when plugins are not configured", async () => {
+  test("reports ok when plugins are not configured", async () => {
     await writeFile(
       join(fixtureRoot, "settings.json"),
       JSON.stringify({
@@ -95,20 +99,22 @@ describe("GET /api/status", () => {
     );
     await writeFile(join(fixtureRoot, "CLAUDE.md"), "# CLAUDE Instructions\n");
 
-    const app = createApp();
-    const response = await app.request("/api/status");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/status", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { items: StatusItem[] };
     const pluginsItem = body.items.find((item) => item.id === "plugins");
-    expect(pluginsItem?.status).toBe("warn");
+    expect(pluginsItem?.status).toBe("ok");
+    expect(pluginsItem?.message).toBe("No plugins enabled");
+    expect(pluginsItem?.fixRoute).toBeUndefined();
   });
 
   test("warns when settings.json is malformed", async () => {
     await writeFile(join(fixtureRoot, "settings.json"), "{not-json");
 
-    const app = createApp();
-    const response = await app.request("/api/status");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/status", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { items: StatusItem[] };
@@ -119,8 +125,8 @@ describe("GET /api/status", () => {
   test("marks allOk as false when any item is not ok", async () => {
     await writeFile(join(fixtureRoot, "settings.json"), JSON.stringify({ model: "opus" }));
 
-    const app = createApp();
-    const response = await app.request("/api/status");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/status", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { allOk: boolean };
@@ -128,8 +134,8 @@ describe("GET /api/status", () => {
   });
 
   test("includes message and fixRoute for each item", async () => {
-    const app = createApp();
-    const response = await app.request("/api/status");
+    const app = createApp({ token: TEST_TOKEN });
+    const response = await app.request("/api/status", { headers: AUTH });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as { items: StatusItem[] };

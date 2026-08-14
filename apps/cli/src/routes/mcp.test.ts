@@ -151,7 +151,13 @@ describe("MCP Routes", () => {
       expect(res.status).toBe(201);
       const json = await res.json();
       expect(json.name).toBe("new-server");
-      expect(mcpFs.addMcpServer).toHaveBeenCalledWith("new-server", expect.any(Object), "user");
+      expect(mcpFs.addMcpServer).toHaveBeenCalledWith(
+        "new-server",
+        expect.any(Object),
+        "user",
+        undefined,
+        undefined,
+      );
     });
 
     it("should reject duplicate server name", async () => {
@@ -242,7 +248,12 @@ describe("MCP Routes", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
-      expect(mcpFs.removeMcpServer).toHaveBeenCalledWith("test-server", "user");
+      expect(mcpFs.removeMcpServer).toHaveBeenCalledWith(
+        "test-server",
+        "user",
+        undefined,
+        undefined,
+      );
     });
 
     it("should reject invalid scope", async () => {
@@ -253,6 +264,7 @@ describe("MCP Routes", () => {
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.error).toContain("Invalid scope");
+      expect(json.error).toContain("local");
     });
 
     it("should return 404 when server not found", async () => {
