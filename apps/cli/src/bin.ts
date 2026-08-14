@@ -11,8 +11,8 @@ const mainCommand = defineCommand({
   args: {
     port: {
       type: "string",
-      description: "Port to listen on (default 3847)",
-      default: "3847",
+      description: "Port to listen on (default: random)",
+      default: "0",
       alias: "p",
     },
     "keep-alive": {
@@ -23,14 +23,14 @@ const mainCommand = defineCommand({
   },
   async run({ args }) {
     const port = Number(args.port);
-    if (!Number.isFinite(port) || port <= 0) {
+    if (!Number.isFinite(port) || !Number.isInteger(port) || port < 0) {
       throw new Error(`Invalid --port: ${args.port}`);
     }
 
     const keepAlive = Boolean(args["keep-alive"]);
     const running = await startStudio({ port, keepAlive });
 
-    console.log(`claude-desk listening on ${running.url}`);
+    console.log(`claude-desk listening on ${running.url}#token=${running.token}`);
     if (keepAlive) {
       console.log("keep-alive: server will stay up until interrupted");
     } else {

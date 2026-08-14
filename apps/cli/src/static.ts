@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Hono } from "hono";
 import { getMimeType } from "hono/utils/mime";
 
-const LIFECYCLE_INJECT = `<script>(function(){if(!window.EventSource)return;var es=new EventSource("/api/lifecycle");window.addEventListener("pagehide",function(){es.close()});window.addEventListener("beforeunload",function(){es.close()})})()</script>`;
+const LIFECYCLE_INJECT = `<script>(function(){if(!window.EventSource)return;var m=location.hash.match(/token=([0-9a-zA-Z]+)/);var token=(m&&m[1])||sessionStorage.getItem("ccs-token");if(!token)return;sessionStorage.setItem("ccs-token",token);var es=new EventSource("/api/lifecycle?access_token="+encodeURIComponent(token));window.addEventListener("pagehide",function(){es.close()});window.addEventListener("beforeunload",function(){es.close()})})()</script>`;
 
 /** Resolve the built SPA directory relative to this module (src or dist). */
 export function resolveWebDistDir(fromUrl: string = import.meta.url): string {

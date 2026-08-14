@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { registerSecurity, requireBearerToken } from "./auth.js";
 import { getContextResponse, getContextAllResponse } from "./routes/context.js";
 import { getFileResponse, postFileResponse } from "./routes/file.js";
 import {
@@ -10,6 +11,7 @@ import { getSkillsResponse } from "./routes/skills.js";
 import { getTreeResponse } from "./routes/tree.js";
 import { getBackupsResponse, postRestoreBackupResponse } from "./routes/backups.js";
 import { getScopesResponse } from "./routes/scopes.js";
+import { getProjectsResponse } from "./routes/projects.js";
 import { mcpRoute } from "./routes/mcp.js";
 import { mcpCatalogRoute } from "./routes/mcpCatalog.js";
 import { getStatusResponse } from "./routes/status.js";
@@ -18,47 +20,85 @@ import {
   getUsageModelsResponse,
   getUsageProjectsResponse,
   getUsageTimelineResponse,
+  getUsageSessionsResponse,
+  getUsageWindowsResponse,
+  getUsagePromptsResponse,
 } from "./routes/usage.js";
-import type { Scope } from "schema";
+import {
+  isInvalidProjectDir,
+  parseScope,
+  parseSettingsLayer,
+  projectDirForLayer,
+} from "./routes/scopeQuery.js";
 
-export function createApp() {
+/** Parse a positive integer query param, falling back to `defaultValue` when absent or invalid. */
+function parseQueryInt(value: string | undefined, defaultValue: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : defaultValue;
+}
+
+export function createApp(options: { token: string }): Hono {
+  if (!options.token) {
+    throw new Error("token is required");
+  }
+
   const app = new Hono();
+  registerSecurity(app);
+  app.use("*", requireBearerToken(options.token));
 
   app.get("/api/health", (c) => c.json({ ok: true, service: "cli" }));
 
   app.get("/api/tree", async (c) => {
-    const scope = (c.req.query("scope") ?? "user") as Scope;
-    const tree = await getTreeResponse(scope);
-    return c.json(tree);
+    try {
+      const scope = parseScope(c.req.query("scope"));
+      const projectDir = projectDirForLayer(scope, c.req.query("projectDir"));
+      const result = await getTreeResponse(scope, projectDir);
+      return c.json(result.body, result.status);
+    } catch (error) {
+      if (isInvalidProjectDir(error)) return c.json({ error: error.message }, 400);
+      throw error;
+    }
   });
 
   app.get("/api/file", async (c) => {
-    const category = c.req.query("category") ?? "";
-    const name = c.req.query("name") ?? "";
-    const scope = (c.req.query("scope") ?? "user") as Scope;
-    const result = await getFileResponse(category, name, scope);
+    try {
+      const category = c.req.query("category") ?? "";
+      const name = c.req.query("name") ?? "";
+      const scope = parseScope(c.req.query("scope"));
+      const projectDir = projectDirForLayer(scope, c.req.query("projectDir"));
+      const result = await getFileResponse(category, name, scope, projectDir);
 
-    if (result.status === 200) {
-      return c.json(result.body);
+      if (result.status === 200) {
+        return c.json(result.body);
+      }
+      return c.json(result.body, result.status);
+    } catch (error) {
+      if (isInvalidProjectDir(error)) return c.json({ error: error.message }, 400);
+      throw error;
     }
-    return c.json(result.body, result.status);
   });
 
   app.post("/api/file", async (c) => {
-    const category = c.req.query("category") ?? "";
-    const name = c.req.query("name") ?? "";
-    const scope = (c.req.query("scope") ?? "user") as Scope;
-    let body: { content?: string };
     try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "invalid JSON body" }, 400);
+      const category = c.req.query("category") ?? "";
+      const name = c.req.query("name") ?? "";
+      const scope = parseScope(c.req.query("scope"));
+      const projectDir = projectDirForLayer(scope, c.req.query("projectDir"));
+      let body: { content?: string };
+      try {
+        body = await c.req.json();
+      } catch {
+        return c.json({ error: "invalid JSON body" }, 400);
+      }
+      if (typeof body.content !== "string") {
+        return c.json({ error: "content must be a string" }, 400);
+      }
+      const result = await postFileResponse(category, name, body.content, scope, projectDir);
+      return c.json(result.body, result.status);
+    } catch (error) {
+      if (isInvalidProjectDir(error)) return c.json({ error: error.message }, 400);
+      throw error;
     }
-    if (typeof body.content !== "string") {
-      return c.json({ error: "content must be a string" }, 400);
-    }
-    const result = await postFileResponse(category, name, body.content, scope);
-    return c.json(result.body, result.status);
   });
 
   app.get("/api/skills", async (c) => {
@@ -71,11 +111,18 @@ export function createApp() {
     return c.json(result);
   });
 
-  // Global context endpoint — returns full context details including model, tokens, percentage
-  // and nested items (skills, agents, MCPs, memory files). Not project-scoped.
+  // Context snapshot from `claude /context all`. When scope=project, runs in that directory
+  // so project skills appear the same way they do in the Claude CLI.
   app.get("/api/context/all", async (c) => {
-    const result = await getContextAllResponse();
-    return c.json(result);
+    try {
+      const scope = parseScope(c.req.query("scope"));
+      const projectDir = projectDirForLayer(scope, c.req.query("projectDir"));
+      const result = await getContextAllResponse(projectDir);
+      return c.json(result);
+    } catch (error) {
+      if (isInvalidProjectDir(error)) return c.json({ error: error.message }, 400);
+      throw error;
+    }
   });
 
   app.get("/api/settings/schema", (c) => {
@@ -84,21 +131,33 @@ export function createApp() {
   });
 
   app.get("/api/settings", async (c) => {
-    const scope = (c.req.query("scope") ?? "user") as Scope;
-    const result = await getSettingsResponse(scope);
-    return c.json(result.body, result.status);
+    try {
+      const layer = parseSettingsLayer(c.req.query("scope"));
+      const projectDir = projectDirForLayer(layer, c.req.query("projectDir"));
+      const result = await getSettingsResponse(layer, projectDir);
+      return c.json(result.body, result.status);
+    } catch (error) {
+      if (isInvalidProjectDir(error)) return c.json({ error: error.message }, 400);
+      throw error;
+    }
   });
 
   app.put("/api/settings", async (c) => {
-    const scope = (c.req.query("scope") ?? "user") as Scope;
-    let body: unknown;
     try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: "invalid JSON body" }, 400);
+      const layer = parseSettingsLayer(c.req.query("scope"));
+      const projectDir = projectDirForLayer(layer, c.req.query("projectDir"));
+      let body: unknown;
+      try {
+        body = await c.req.json();
+      } catch {
+        return c.json({ error: "invalid JSON body" }, 400);
+      }
+      const result = await putSettingsResponse(body, layer, projectDir);
+      return c.json(result.body, result.status);
+    } catch (error) {
+      if (isInvalidProjectDir(error)) return c.json({ error: error.message }, 400);
+      throw error;
     }
-    const result = await putSettingsResponse(body, scope);
-    return c.json(result.body, result.status);
   });
 
   app.get("/api/backups", async (c) => {
@@ -118,7 +177,12 @@ export function createApp() {
   });
 
   app.get("/api/scopes", async (c) => {
-    const result = await getScopesResponse();
+    const result = await getScopesResponse(c.req.query("projectDir"));
+    return c.json(result.body, result.status);
+  });
+
+  app.get("/api/projects", async (c) => {
+    const result = await getProjectsResponse(c.req.query("extra"));
     return c.json(result.body, result.status);
   });
 
@@ -137,17 +201,52 @@ export function createApp() {
   });
 
   app.get("/api/usage/models", async (c) => {
-    const result = await getUsageModelsResponse();
+    const result = await getUsageModelsResponse({
+      since: c.req.query("since"),
+      until: c.req.query("until"),
+      period: c.req.query("period"),
+    });
     return c.json(result.body, result.status);
   });
 
   app.get("/api/usage/projects", async (c) => {
-    const result = await getUsageProjectsResponse();
+    const result = await getUsageProjectsResponse({
+      since: c.req.query("since"),
+      until: c.req.query("until"),
+      period: c.req.query("period"),
+    });
     return c.json(result.body, result.status);
   });
 
   app.get("/api/usage/timeline", async (c) => {
-    const result = await getUsageTimelineResponse();
+    const result = await getUsageTimelineResponse({
+      granularity: c.req.query("granularity"),
+      since: c.req.query("since"),
+      until: c.req.query("until"),
+    });
+    return c.json(result.body, result.status);
+  });
+
+  app.get("/api/usage/sessions", async (c) => {
+    const result = await getUsageSessionsResponse({
+      sort: c.req.query("sort"),
+      limit: parseQueryInt(c.req.query("limit"), 20),
+    });
+    return c.json(result.body, result.status);
+  });
+
+  app.get("/api/usage/windows", async (c) => {
+    const result = await getUsageWindowsResponse(parseQueryInt(c.req.query("limit"), 20));
+    return c.json(result.body, result.status);
+  });
+
+  app.get("/api/usage/prompts", async (c) => {
+    const result = await getUsagePromptsResponse({
+      limit: parseQueryInt(c.req.query("limit"), 50),
+      since: c.req.query("since"),
+      until: c.req.query("until"),
+      project: c.req.query("project"),
+    });
     return c.json(result.body, result.status);
   });
 

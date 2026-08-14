@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import type { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import open from "open";
+import { createToken } from "./auth.js";
 import { createApp } from "./server.js";
 import { mountStatic, resolveWebDistDir } from "./static.js";
 
@@ -11,11 +12,13 @@ export type StartOptions = {
   openBrowser?: boolean;
   webDistDir?: string;
   openFn?: (url: string) => Promise<unknown>;
+  token?: string;
 };
 
 export type RunningServer = {
   url: string;
   port: number;
+  token: string;
   close: () => Promise<void>;
   waitUntilExit: () => Promise<void>;
 };
@@ -72,7 +75,8 @@ export function mountLifecycle(app: Hono, state: LifecycleState): void {
 export async function startStudio(options: StartOptions): Promise<RunningServer> {
   const port = options.port;
   const webDistDir = options.webDistDir ?? resolveWebDistDir();
-  const app = createApp();
+  const token = options.token ?? createToken();
+  const app = createApp({ token });
 
   let resolveExit!: () => void;
   const exitPromise = new Promise<void>((resolve) => {
@@ -114,12 +118,13 @@ export async function startStudio(options: StartOptions): Promise<RunningServer>
   const shouldOpen = options.openBrowser !== false && process.env.CC_STUDIO_NO_OPEN !== "1";
   if (shouldOpen) {
     const openFn = options.openFn ?? ((target: string) => open(target));
-    await openFn(url);
+    await openFn(`${url}#token=${token}`);
   }
 
   return {
     url,
     port: boundPort,
+    token,
     close: async () => {
       await closeServer?.();
       resolveExit();
