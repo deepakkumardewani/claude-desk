@@ -8,27 +8,27 @@ import { Layout } from "./Layout";
 function renderLayout(path: string) {
   return renderToStaticMarkup(
     <ThemeProvider>
-      <ScopeProvider>
-        <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[path]}>
+        <ScopeProvider>
           <Layout />
-        </MemoryRouter>
-      </ScopeProvider>
+        </ScopeProvider>
+      </MemoryRouter>
     </ThemeProvider>,
   );
 }
 
 test("Layout on home route omits the sidebar aside", () => {
-  const html = renderLayout("/");
+  const html = renderLayout("/user");
   expect(html).not.toContain("<aside");
 });
 
 test("Layout on settings, claude-md, and workspace routes omits the sidebar aside", () => {
-  expect(renderLayout("/settings")).not.toContain("<aside");
-  expect(renderLayout("/claude-md")).not.toContain("<aside");
+  expect(renderLayout("/user/settings")).not.toContain("<aside");
+  expect(renderLayout("/user/claude-md")).not.toContain("<aside");
   expect(renderLayout("/workspace")).not.toContain("<aside");
 });
 
 test("Layout on file routes renders the sidebar aside", () => {
-  const html = renderLayout("/skills/some-skill");
+  const html = renderLayout("/user/skills/some-skill");
   expect(html).toContain("<aside");
 });

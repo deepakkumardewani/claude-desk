@@ -11,6 +11,14 @@ vi.mock("../api/context", () => ({
   fetchContextDetails: vi.fn(),
 }));
 
+vi.mock("../lib/scope", () => ({
+  useWorkspace: () => ({
+    workspace: { kind: "user" },
+    projectDir: null,
+    activeScope: "user",
+  }),
+}));
+
 afterEach(() => {
   cleanup();
   clearCachedContext();

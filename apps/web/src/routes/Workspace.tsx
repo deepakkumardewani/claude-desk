@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ContextSummary } from "../components/ContextSummary";
 import { fetchContextDetails, type ContextDetails } from "../api/context";
 import { getCachedContext, setCachedContext } from "../lib/contextCache";
+import { useWorkspace } from "../lib/scope";
+import { dirBasename } from "../lib/workspaceState";
 
 function SkeletonRow() {
   return (
@@ -77,52 +79,61 @@ export function friendlyContextError(raw: string | null | undefined): {
 }
 
 export function Workspace() {
-  const cached = getCachedContext();
+  const { workspace, projectDir, activeScope } = useWorkspace();
+  const cacheKey = workspace.kind === "project" ? `project:${workspace.dir}` : "user";
+  const cached = getCachedContext(cacheKey);
   const [data, setData] = useState<ContextDetails | null>(cached);
   const [loading, setLoading] = useState(cached === null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback((isRefresh = false) => {
-    const hasCache = getCachedContext() !== null;
-    if (isRefresh) {
-      // Explicit refresh: show skeleton so the wait is obvious.
-      setRefreshing(true);
-      setLoading(true);
-      setError(null);
-    } else if (!hasCache) {
-      setLoading(true);
-    }
+  const load = useCallback(
+    (isRefresh = false) => {
+      const hasCache = getCachedContext(cacheKey) !== null;
+      if (isRefresh) {
+        setRefreshing(true);
+        setLoading(true);
+        setError(null);
+      } else if (!hasCache) {
+        setLoading(true);
+        setData(null);
+      } else {
+        setData(getCachedContext(cacheKey));
+      }
 
-    fetchContextDetails()
-      .then((res) => {
-        if (res.success) {
-          setCachedContext(res.data);
-          setData(res.data);
-          setError(null);
-        } else {
-          if (!getCachedContext()) {
+      fetchContextDetails(activeScope, projectDir ?? undefined)
+        .then((res) => {
+          if (res.success) {
+            setCachedContext(cacheKey, res.data);
+            setData(res.data);
+            setError(null);
+          } else {
+            if (!getCachedContext(cacheKey)) {
+              setData(null);
+            }
+            setError(res.error);
+          }
+        })
+        .catch((err) => {
+          if (!getCachedContext(cacheKey)) {
             setData(null);
           }
-          setError(res.error);
-        }
-      })
-      .catch((err) => {
-        if (!getCachedContext()) {
-          setData(null);
-        }
-        setError(err instanceof Error ? err.message : "Unable to reach the server.");
-      })
-      .finally(() => {
-        setLoading(false);
-        setRefreshing(false);
-      });
-  }, []);
+          setError(err instanceof Error ? err.message : "Unable to reach the server.");
+        })
+        .finally(() => {
+          setLoading(false);
+          setRefreshing(false);
+        });
+    },
+    [activeScope, cacheKey, projectDir],
+  );
 
   useEffect(() => {
-    // Always refresh in the background; cache just skips the empty loading state.
     load(false);
   }, [load]);
+
+  const workspaceLabel =
+    workspace.kind === "project" ? dirBasename(workspace.dir) : "User (~/.claude)";
 
   const friendly = friendlyContextError(error);
 
@@ -132,9 +143,9 @@ export function Workspace() {
         <>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="font-display text-2xl font-semibold tracking-tight text-text">
-              Workspace
+              Context
             </h2>
-            <p className="font-mono text-sm text-text-muted">context inspector</p>
+            <p className="text-sm text-text-muted">{workspaceLabel}</p>
             {refreshing ? (
               <span className="text-sm text-text-muted" aria-live="polite">
                 Refreshing…
@@ -168,6 +179,7 @@ export function Workspace() {
           percentage={data.percentage}
           model={data.model}
           isEstimated={data.is_estimated}
+          workspaceLabel={workspaceLabel}
           onRefresh={() => load(true)}
           refreshing={refreshing}
           staleError={error ? friendly : null}

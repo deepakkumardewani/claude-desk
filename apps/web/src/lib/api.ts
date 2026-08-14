@@ -1,4 +1,7 @@
 import type { McpListResponse } from "schema";
+import { apiFetch } from "./sessionApi";
+
+export { apiFetch, bootstrapToken, getSessionToken } from "./sessionApi";
 
 export const ROUTE_TO_CATEGORY = {
   skills: "skills",
@@ -94,17 +97,29 @@ async function parseJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function fetchTree(scope: string = "user"): Promise<TreeResponse> {
-  return parseJson<TreeResponse>(await fetch(`/api/tree?scope=${encodeURIComponent(scope)}`));
+function withProjectDir(params: URLSearchParams, projectDir?: string): URLSearchParams {
+  if (projectDir) {
+    params.set("projectDir", projectDir);
+  }
+  return params;
+}
+
+export async function fetchTree(
+  scope: string = "user",
+  projectDir?: string,
+): Promise<TreeResponse> {
+  const params = withProjectDir(new URLSearchParams({ scope }), projectDir);
+  return parseJson<TreeResponse>(await apiFetch(`/api/tree?${params.toString()}`));
 }
 
 export async function fetchFile(
   category: ApiCategory,
   name: string,
   scope: string = "user",
+  projectDir?: string,
 ): Promise<FileResponse> {
-  const params = new URLSearchParams({ category, name, scope });
-  return parseJson<FileResponse>(await fetch(`/api/file?${params.toString()}`));
+  const params = withProjectDir(new URLSearchParams({ category, name, scope }), projectDir);
+  return parseJson<FileResponse>(await apiFetch(`/api/file?${params.toString()}`));
 }
 
 const EDITABLE_CATEGORIES = new Set<ApiCategory>([
@@ -130,9 +145,10 @@ export async function saveFile(
   name: string,
   content: string,
   scope: string = "user",
+  projectDir?: string,
 ): Promise<SaveFileResponse> {
-  const params = new URLSearchParams({ category, name, scope });
-  const response = await fetch(`/api/file?${params.toString()}`, {
+  const params = withProjectDir(new URLSearchParams({ category, name, scope }), projectDir);
+  const response = await apiFetch(`/api/file?${params.toString()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
@@ -146,17 +162,19 @@ export async function saveFile(
 }
 
 export async function fetchSettingsSchema(): Promise<SettingsSchemaResponse> {
-  return parseJson<SettingsSchemaResponse>(await fetch("/api/settings/schema"));
+  return parseJson<SettingsSchemaResponse>(await apiFetch("/api/settings/schema"));
 }
 
-export async function fetchSettings(scope: string = "user"): Promise<SettingsResponse> {
-  return parseJson<SettingsResponse>(
-    await fetch(`/api/settings?scope=${encodeURIComponent(scope)}`),
-  );
+export async function fetchSettings(
+  scope: string = "user",
+  projectDir?: string,
+): Promise<SettingsResponse> {
+  const params = withProjectDir(new URLSearchParams({ scope }), projectDir);
+  return parseJson<SettingsResponse>(await apiFetch(`/api/settings?${params.toString()}`));
 }
 
 export async function fetchSkills(): Promise<SkillsResponse> {
-  return parseJson<SkillsResponse>(await fetch("/api/skills"));
+  return parseJson<SkillsResponse>(await apiFetch("/api/skills"));
 }
 
 export type ContextEntry = {
@@ -170,14 +188,16 @@ export type ContextResponse =
   | { success: false; error: string };
 
 export async function fetchContext(): Promise<ContextResponse> {
-  return parseJson<ContextResponse>(await fetch("/api/context"));
+  return parseJson<ContextResponse>(await apiFetch("/api/context"));
 }
 
 export async function updateSettings(
   settings: Record<string, unknown>,
   scope: string = "user",
+  projectDir?: string,
 ): Promise<SettingsResponse> {
-  const response = await fetch(`/api/settings?scope=${encodeURIComponent(scope)}`, {
+  const params = withProjectDir(new URLSearchParams({ scope }), projectDir);
+  const response = await apiFetch(`/api/settings?${params.toString()}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(settings),
@@ -208,11 +228,11 @@ export type BackupsListResponse = {
 };
 
 export async function fetchBackups(): Promise<BackupsListResponse> {
-  return parseJson<BackupsListResponse>(await fetch("/api/backups"));
+  return parseJson<BackupsListResponse>(await apiFetch("/api/backups"));
 }
 
 export async function restoreBackup(backupId: string, originalPath: string): Promise<void> {
-  const response = await fetch("/api/backups/restore", {
+  const response = await apiFetch("/api/backups/restore", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ backupId, originalPath }),
@@ -223,35 +243,102 @@ export async function restoreBackup(backupId: string, originalPath: string): Pro
   }
 }
 
-export async function fetchMcpServers(): Promise<McpListResponse> {
-  return parseJson<McpListResponse>(await fetch("/api/mcp"));
+export async function fetchMcpServers(
+  scope: string = "user",
+  projectDir?: string,
+): Promise<McpListResponse> {
+  const params = withProjectDir(new URLSearchParams({ scope }), projectDir);
+  return parseJson<McpListResponse>(await apiFetch(`/api/mcp?${params.toString()}`));
 }
 
-// Usage Analytics types and API functions
-export type UsageOverview = {
-  totalCost: number;
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  sessionCount: number;
+export type ProjectListResponse = {
+  projects: Array<{ dir: string; name: string; exists: boolean }>;
 };
 
-export type UsageModel = {
-  model: string;
+export async function fetchProjects(extras: string[]): Promise<ProjectListResponse> {
+  const params = new URLSearchParams();
+  if (extras.length > 0) {
+    params.set("extra", extras.join(","));
+  }
+  const query = params.toString();
+  return parseJson<ProjectListResponse>(
+    await apiFetch(query ? `/api/projects?${query}` : "/api/projects"),
+  );
+}
+
+// Usage Analytics types and API functions.
+// These types mirror the backend shapes in apps/cli/src/usage/aggregate.ts and
+// apps/cli/src/routes/usage.ts exactly — keep them in sync when either side changes.
+
+/** Base cost/token totals shared by every usage aggregate. */
+export type UsageAggregate = {
   cost: number;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+};
+
+// A 5-hour billing window ("block") tracks in-progress spend against Anthropic's
+// rate-limit window so users can see burn rate and a live cost projection.
+export type UsageBlock = UsageAggregate & {
+  startMs: number;
+  endMs: number;
+  active: boolean;
+  turns: number;
+  models: string[];
+  burnPerHour: number;
+  projectedCost: number;
+  elapsedMs: number;
+  remainingMs: number;
+  progressPct: number;
+};
+
+export type UsageModelToday = UsageAggregate & { turns: number };
+
+export type UsageToday = UsageAggregate & {
+  date: string;
+  turns: number;
+  byModel: Record<string, UsageModelToday>;
+};
+
+export type UsageHeatmapEntry = {
+  date: string;
+  cost: number;
+  turns: number;
+};
+
+export type UsageTotals = UsageAggregate & {
   sessionCount: number;
+  projectCount: number;
+};
+
+export type UsageOverview = {
+  totals: UsageTotals;
+  today: UsageToday;
+  activeWindow: UsageBlock | null;
+  heatmap: UsageHeatmapEntry[];
+  pricingAsOf: string;
+};
+
+export type UsageModel = UsageAggregate & {
+  model: string;
+  sessionCount: number;
+  share: number;
 };
 
 export type UsageModelsResponse = {
   models: UsageModel[];
 };
 
-export type UsageProject = {
+export type UsageModelsQuery = {
+  period?: string;
+  since?: string;
+  until?: string;
+};
+
+export type UsageProject = UsageAggregate & {
   project: string;
-  cost: number;
-  inputTokens: number;
-  outputTokens: number;
   sessionCount: number;
 };
 
@@ -259,30 +346,135 @@ export type UsageProjectsResponse = {
   projects: UsageProject[];
 };
 
-export type UsageTimelineEntry = {
-  date: string;
-  cost: number;
-  inputTokens: number;
-  outputTokens: number;
+export type UsageProjectsQuery = {
+  period?: string;
+  since?: string;
+  until?: string;
+};
+
+export type UsageTimelineGranularity = "daily" | "monthly";
+
+export type UsageTimelineEntry = UsageAggregate & {
+  period: string;
   sessionCount: number;
 };
 
 export type UsageTimelineResponse = {
   timeline: UsageTimelineEntry[];
+  granularity: UsageTimelineGranularity;
+  /** Unique sessions across the filtered range (not a sum of per-bucket counts). */
+  uniqueSessionCount: number;
 };
 
+export type UsageTimelineQuery = {
+  granularity?: UsageTimelineGranularity;
+  since?: string;
+  until?: string;
+};
+
+export type UsageSession = UsageAggregate & {
+  sessionId: string;
+  project: string;
+  turns: number;
+  firstTimestampMs: number;
+  lastTimestampMs: number;
+  models: string[];
+};
+
+export type UsageSessionsResponse = {
+  sessions: UsageSession[];
+};
+
+export type UsageSessionsQuery = {
+  sort?: "cost" | "recent";
+  limit?: number;
+};
+
+export type UsageWindowsResponse = {
+  windows: UsageBlock[];
+};
+
+export type UsageWindowsQuery = {
+  limit?: number;
+};
+
+export type UsagePrompt = {
+  timestampMs: number;
+  date: string;
+  project: string;
+  sessionId: string;
+  prompt: string | null;
+  cost: number | null;
+};
+
+export type UsagePromptsResponse = {
+  prompts: UsagePrompt[];
+};
+
+export type UsagePromptsQuery = {
+  limit?: number;
+  since?: string;
+  until?: string;
+  project?: string;
+};
+
+function toSearchParams(query: Record<string, string | number | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+  const search = params.toString();
+  return search ? `?${search}` : "";
+}
+
 export async function fetchUsageOverview(): Promise<UsageOverview> {
-  return parseJson<UsageOverview>(await fetch("/api/usage/overview"));
+  return parseJson<UsageOverview>(await apiFetch("/api/usage/overview"));
 }
 
-export async function fetchUsageModels(): Promise<UsageModelsResponse> {
-  return parseJson<UsageModelsResponse>(await fetch("/api/usage/models"));
+export async function fetchUsageModels(query: UsageModelsQuery = {}): Promise<UsageModelsResponse> {
+  return parseJson<UsageModelsResponse>(
+    await apiFetch(`/api/usage/models${toSearchParams(query)}`),
+  );
 }
 
-export async function fetchUsageProjects(): Promise<UsageProjectsResponse> {
-  return parseJson<UsageProjectsResponse>(await fetch("/api/usage/projects"));
+export async function fetchUsageProjects(
+  query: UsageProjectsQuery = {},
+): Promise<UsageProjectsResponse> {
+  return parseJson<UsageProjectsResponse>(
+    await apiFetch(`/api/usage/projects${toSearchParams(query)}`),
+  );
 }
 
-export async function fetchUsageTimeline(): Promise<UsageTimelineResponse> {
-  return parseJson<UsageTimelineResponse>(await fetch("/api/usage/timeline"));
+export async function fetchUsageTimeline(
+  query: UsageTimelineQuery = {},
+): Promise<UsageTimelineResponse> {
+  return parseJson<UsageTimelineResponse>(
+    await apiFetch(`/api/usage/timeline${toSearchParams(query)}`),
+  );
+}
+
+export async function fetchUsageSessions(
+  query: UsageSessionsQuery = {},
+): Promise<UsageSessionsResponse> {
+  return parseJson<UsageSessionsResponse>(
+    await apiFetch(`/api/usage/sessions${toSearchParams(query)}`),
+  );
+}
+
+export async function fetchUsageWindows(
+  query: UsageWindowsQuery = {},
+): Promise<UsageWindowsResponse> {
+  return parseJson<UsageWindowsResponse>(
+    await apiFetch(`/api/usage/windows${toSearchParams(query)}`),
+  );
+}
+
+export async function fetchUsagePrompts(
+  query: UsagePromptsQuery = {},
+): Promise<UsagePromptsResponse> {
+  return parseJson<UsagePromptsResponse>(
+    await apiFetch(`/api/usage/prompts${toSearchParams(query)}`),
+  );
 }

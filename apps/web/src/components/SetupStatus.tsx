@@ -1,6 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { StatusResponse, StatusItem } from "schema";
+import { apiFetch } from "../lib/sessionApi";
+import { useWorkspace } from "../lib/scope";
+import {
+  firstSection,
+  isMachineSection,
+  pathForWorkspace,
+  type Workspace,
+} from "../lib/workspaceState";
+
+function statusFixHref(workspace: Workspace, route: string): string {
+  const section = route.replace(/^\//u, "");
+  if (isMachineSection(firstSection(section))) {
+    return route;
+  }
+  return pathForWorkspace(workspace, section);
+}
 
 function StatusIcon({ status }: { status: "ok" | "warn" | "missing" }) {
   if (status === "ok") {
@@ -38,11 +54,12 @@ function StatusIcon({ status }: { status: "ok" | "warn" | "missing" }) {
   );
 }
 
-interface SetupStatusProps {
-  compact?: boolean;
+function issueCountLabel(count: number): string {
+  return count === 1 ? "1 issue" : `${count} issues`;
 }
 
-export function SetupStatus({ compact = false }: SetupStatusProps) {
+export function SetupStatus() {
+  const { workspace } = useWorkspace();
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,14 +67,14 @@ export function SetupStatus({ compact = false }: SetupStatusProps) {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/status")
-      .then((res) => res.json())
+    apiFetch("/api/status")
+      .then((res: Response) => res.json())
       .then((data: StatusResponse) => {
         if (!cancelled) {
           setStatus(data);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (!cancelled) {
           setError("Unable to load setup status");
           console.error("Error fetching status:", err);
@@ -75,56 +92,34 @@ export function SetupStatus({ compact = false }: SetupStatusProps) {
   }, []);
 
   if (loading) {
-    return (
-      <div className="rounded-lg border border-border-subtle bg-surface-raised p-4 animate-pulse">
-        <div className="h-4 w-24 rounded bg-border-subtle" />
-      </div>
-    );
+    return <div className="mt-6 h-4 w-32 animate-pulse rounded bg-border-subtle" />;
   }
 
   if (error) {
     return (
-      <div className="rounded-lg border border-border-subtle bg-surface-raised p-4 text-sm text-danger">
+      <div className="mt-6 rounded-lg border border-border-subtle bg-surface-raised p-4 text-sm text-danger">
         {error}
       </div>
     );
   }
 
-  if (!status) {
+  if (!status || status.allOk) {
     return null;
   }
 
-  if (compact && status.allOk) {
-    return (
-      <div className="rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 flex items-center gap-2 text-sm text-text">
-        <StatusIcon status="ok" />
-        <span>All setup checks passed</span>
-      </div>
-    );
-  }
-
-  if (compact) {
-    const nonOkCount = status.items.filter((item: StatusItem) => item.status !== "ok").length;
-    return (
-      <div className="rounded-lg border border-border-subtle bg-surface-raised px-4 py-3">
-        <Link
-          to="/settings"
-          className="flex items-center gap-2 text-sm text-warning hover:text-warning/80 transition"
-        >
-          <StatusIcon status="warn" />
-          <span>{nonOkCount} setup check(s) need attention</span>
-        </Link>
-      </div>
-    );
+  const issues = status.items.filter((item: StatusItem) => item.status !== "ok");
+  if (issues.length === 0) {
+    return null;
   }
 
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface-raised overflow-hidden">
-      <div className="px-4 py-3 border-b border-border-subtle">
-        <h3 className="text-sm font-semibold text-text">Setup Status</h3>
+    <div className="mt-6 overflow-hidden rounded-lg border border-border-subtle bg-surface-raised">
+      <div className="px-4 py-3 border-b border-border-subtle flex items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-text">Needs attention</h3>
+        <p className="text-xs text-text-muted">{issueCountLabel(issues.length)}</p>
       </div>
       <div className="divide-y divide-border-subtle">
-        {status.items.map((item: StatusItem) => (
+        {issues.map((item: StatusItem) => (
           <div key={item.id} className="px-4 py-3 flex items-start gap-3">
             <div className="mt-0.5 flex-shrink-0">
               <StatusIcon status={item.status} />
@@ -136,10 +131,10 @@ export function SetupStatus({ compact = false }: SetupStatusProps) {
               </div>
               {item.fixRoute && item.status !== "ok" && (
                 <Link
-                  to={item.fixRoute}
-                  className="mt-1 text-xs font-medium text-accent hover:opacity-80 transition"
+                  to={statusFixHref(workspace, item.fixRoute)}
+                  className="mt-1 inline-block text-xs font-medium text-accent hover:opacity-80 transition"
                 >
-                  Fix →
+                  Fix {item.label}
                 </Link>
               )}
             </div>

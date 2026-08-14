@@ -163,36 +163,3 @@ export function searchFiles(
       file.categoryLabel.toLowerCase().includes(normalized),
   );
 }
-
-export type ConfigStat = {
-  label: string;
-  value: string;
-  hint?: string;
-};
-
-function titleCase(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-/** Derive at-a-glance stats from the current settings.json. */
-export function summarizeConfig(settings: ClaudeSettings): ConfigStat[] {
-  const enabledPlugins = settings.enabledPlugins ?? {};
-  const pluginEntries = Object.values(enabledPlugins);
-  const enabledCount = pluginEntries.filter((value) => value !== false).length;
-
-  return [
-    { label: "Model", value: settings.model ?? "Default" },
-    { label: "Effort", value: settings.effortLevel ? titleCase(settings.effortLevel) : "Auto" },
-    {
-      label: "Permissions",
-      value: settings.permissions?.defaultMode
-        ? titleCase(settings.permissions.defaultMode)
-        : "Default",
-    },
-    {
-      label: "Plugins on",
-      value: String(enabledCount),
-      hint: pluginEntries.length ? `of ${pluginEntries.length}` : undefined,
-    },
-  ];
-}
