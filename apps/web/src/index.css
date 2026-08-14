@@ -23,6 +23,18 @@
   --color-cat-agents: var(--cat-agents);
   --color-cat-plugins: var(--cat-plugins);
 
+  --color-warning: var(--warning);
+  --color-warning-fg: var(--warning-fg);
+  --color-success-fg: var(--success-fg);
+
+  --color-mcp-memory: var(--mcp-memory);
+  --color-mcp-browser: var(--mcp-browser);
+  --color-mcp-files-and-git: var(--mcp-files-and-git);
+  --color-mcp-search-and-docs: var(--mcp-search-and-docs);
+  --color-mcp-databases: var(--mcp-databases);
+  --color-mcp-devtools: var(--mcp-devtools);
+  --color-mcp-productivity: var(--mcp-productivity);
+
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
@@ -60,6 +72,18 @@
   --cat-settings: #1a3a3a;
   --cat-agents: #4a9eff;
   --cat-plugins: #50c878;
+
+  --warning: #e8b94a;
+  --warning-fg: #4a3a0a;
+  --success-fg: #ffffff;
+
+  --mcp-memory: #b8a4ed;
+  --mcp-browser: #ffb084;
+  --mcp-files-and-git: #ff4d8b;
+  --mcp-search-and-docs: #e8b94a;
+  --mcp-databases: #2f9e8f;
+  --mcp-devtools: #4a9eff;
+  --mcp-productivity: #50c878;
 }
 
 .dark {
@@ -82,6 +106,18 @@
   --cat-settings: #4a7a7a;
   --cat-agents: #4a9eff;
   --cat-plugins: #50c878;
+
+  --warning: #e8b94a;
+  --warning-fg: #4a3a0a;
+  --success-fg: #0a1a1a;
+
+  --mcp-memory: #b8a4ed;
+  --mcp-browser: #ffb084;
+  --mcp-files-and-git: #ff4d8b;
+  --mcp-search-and-docs: #e8b94a;
+  --mcp-databases: #4fd6c4;
+  --mcp-devtools: #4a9eff;
+  --mcp-productivity: #50c878;
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.25);
