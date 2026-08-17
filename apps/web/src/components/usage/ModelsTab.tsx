@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { fetchUsageModels, type UsageModelsResponse } from "../../lib/api";
+import { useAsyncData } from "../../hooks/useAsyncData";
 import { LoadingBlock, ErrorBlock, EmptyBlock } from "./StateBlocks";
 import { ShareBar } from "./ShareBar";
 import { ModelPill } from "./ModelPill";
@@ -12,42 +13,13 @@ const modelsCache = new Map<string, UsageModelsResponse>();
 
 export function ModelsTab() {
   const [period, setPeriod] = useState("");
-  const [data, setData] = useState<UsageModelsResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const key = period || "all";
-    const cached = modelsCache.get(key);
-    if (cached) {
-      setData(cached);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchUsageModels({ period: period || undefined })
-      .then((response) => {
-        if (cancelled) return;
-        modelsCache.set(key, response);
-        setData(response);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load model usage");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [period]);
+  const cacheKey = period || "all";
+  const { data, error, loading } = useAsyncData(
+    () => fetchUsageModels({ period: period || undefined }),
+    [period],
+    { cache: modelsCache, cacheKey },
+  );
 
   const models = data?.models ?? [];
   const totalCost = models.reduce((sum, m) => sum + m.cost, 0);

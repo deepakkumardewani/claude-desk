@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { fetchUsageSessions, type UsageSessionsResponse } from "../../lib/api";
+import { useAsyncData } from "../../hooks/useAsyncData";
 import { LoadingBlock, ErrorBlock, EmptyBlock } from "./StateBlocks";
 import { ModelPill } from "./ModelPill";
 import { formatCost, formatDateTime, formatTokens } from "./format";
@@ -31,42 +32,13 @@ const sessionsCache = new Map<string, UsageSessionsResponse>();
 export function SessionsTab() {
   const [sort, setSort] = useState<"cost" | "recent">("cost");
   const [limit, setLimit] = useState<number>(20);
-  const [data, setData] = useState<UsageSessionsResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const key = `${sort}|${limit}`;
-    const cached = sessionsCache.get(key);
-    if (cached) {
-      setData(cached);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchUsageSessions({ sort, limit })
-      .then((response) => {
-        if (cancelled) return;
-        sessionsCache.set(key, response);
-        setData(response);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load sessions");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [sort, limit]);
+  const cacheKey = `${sort}|${limit}`;
+  const { data, error, loading } = useAsyncData(
+    () => fetchUsageSessions({ sort, limit }),
+    [sort, limit],
+    { cache: sessionsCache, cacheKey },
+  );
 
   const sessions = data?.sessions ?? [];
 

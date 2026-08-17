@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { fetchUsageWindows, type UsageWindowsResponse } from "../../lib/api";
+import { useAsyncData } from "../../hooks/useAsyncData";
 import { BurnGauge } from "./BurnGauge";
 import { LoadingBlock, ErrorBlock, EmptyBlock } from "./StateBlocks";
 import { formatCost, formatDateTime, formatTokens } from "./format";
@@ -16,42 +16,13 @@ import {
   TD_NUM_STRONG,
 } from "./table";
 
-const windowsCache = { data: null as UsageWindowsResponse | null };
+const windowsCache = new Map<string, UsageWindowsResponse>();
 
 export function WindowsTab() {
-  const [data, setData] = useState<UsageWindowsResponse | null>(windowsCache.data);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!windowsCache.data);
-
-  useEffect(() => {
-    // Guard against the module cache, not the `data` state: including `data`
-    // in the dependency array would make this effect's own setData() call
-    // retrigger its cleanup before .finally() runs, dropping setLoading(false).
-    if (windowsCache.data) return;
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchUsageWindows({ limit: 20 })
-      .then((response) => {
-        if (cancelled) return;
-        windowsCache.data = response;
-        setData(response);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load billing windows");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data, error, loading } = useAsyncData(() => fetchUsageWindows({ limit: 20 }), [], {
+    cache: windowsCache,
+    cacheKey: "windows",
+  });
 
   if (loading) return <LoadingBlock label="Loading billing windows..." />;
   if (error) return <ErrorBlock message={error} />;

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { fetchUsagePrompts, type UsagePromptsResponse } from "../../lib/api";
+import { useState } from "react";
+import { fetchUsagePrompts } from "../../lib/api";
+import { useAsyncData } from "../../hooks/useAsyncData";
 import { LoadingBlock, ErrorBlock, EmptyBlock } from "./StateBlocks";
 import { formatCost, formatDateTime } from "./format";
 import { PERIOD_SELECT_CLASS } from "./period";
@@ -10,38 +11,17 @@ export function PromptsTab() {
   const [project, setProject] = useState("");
   const [since, setSince] = useState("");
   const [until, setUntil] = useState("");
-  const [data, setData] = useState<UsagePromptsResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchUsagePrompts({
-      limit: PROMPT_LIMIT,
-      project: project || undefined,
-      since: since || undefined,
-      until: until || undefined,
-    })
-      .then((response) => {
-        if (cancelled) return;
-        setData(response);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load recent prompts");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [project, since, until]);
+  const { data, error, loading } = useAsyncData(
+    () =>
+      fetchUsagePrompts({
+        limit: PROMPT_LIMIT,
+        project: project || undefined,
+        since: since || undefined,
+        until: until || undefined,
+      }),
+    [project, since, until],
+  );
 
   const prompts = data?.prompts ?? [];
 

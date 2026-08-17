@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { fetchUsageProjects, type UsageProjectsResponse } from "../../lib/api";
+import { useAsyncData } from "../../hooks/useAsyncData";
 import { LoadingBlock, ErrorBlock, EmptyBlock } from "./StateBlocks";
 import { MiniShareBar } from "./MiniShareBar";
 import { formatCost, formatTokens, shareOf } from "./format";
@@ -21,42 +22,13 @@ const projectsCache = new Map<string, UsageProjectsResponse>();
 
 export function ProjectsTab() {
   const [period, setPeriod] = useState("");
-  const [data, setData] = useState<UsageProjectsResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const key = period || "all";
-    const cached = projectsCache.get(key);
-    if (cached) {
-      setData(cached);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchUsageProjects({ period: period || undefined })
-      .then((response) => {
-        if (cancelled) return;
-        projectsCache.set(key, response);
-        setData(response);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load project usage");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [period]);
+  const cacheKey = period || "all";
+  const { data, error, loading } = useAsyncData(
+    () => fetchUsageProjects({ period: period || undefined }),
+    [period],
+    { cache: projectsCache, cacheKey },
+  );
 
   const projects = data?.projects ?? [];
   const totalCost = projects.reduce((sum, p) => sum + p.cost, 0);

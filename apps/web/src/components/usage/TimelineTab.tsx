@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   fetchUsageTimeline,
   type UsageTimelineEntry,
   type UsageTimelineGranularity,
   type UsageTimelineResponse,
 } from "../../lib/api";
+import { useAsyncData } from "../../hooks/useAsyncData";
 import { LoadingBlock, ErrorBlock, EmptyBlock } from "./StateBlocks";
 import { formatCost, formatTokens } from "./format";
 import { TABLE_WRAP, TABLE, THEAD_ROW, TH, TH_RIGHT, TR, TD, TD_NUM, TD_NUM_STRONG } from "./table";
@@ -16,7 +17,7 @@ const MAX_VISIBLE_LABELS = 12;
 
 const timelineCache = new Map<string, UsageTimelineResponse>();
 
-function cacheKey(granularity: UsageTimelineGranularity, since: string, until: string): string {
+function getCacheKey(granularity: UsageTimelineGranularity, since: string, until: string): string {
   return `${granularity}|${since}|${until}`;
 }
 
@@ -32,42 +33,13 @@ export function TimelineTab() {
   const [granularity, setGranularity] = useState<UsageTimelineGranularity>("daily");
   const [since, setSince] = useState("");
   const [until, setUntil] = useState("");
-  const [data, setData] = useState<UsageTimelineResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const key = cacheKey(granularity, since, until);
-    const cached = timelineCache.get(key);
-    if (cached) {
-      setData(cached);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchUsageTimeline({ granularity, since: since || undefined, until: until || undefined })
-      .then((response) => {
-        if (cancelled) return;
-        timelineCache.set(key, response);
-        setData(response);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load timeline");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [granularity, since, until]);
+  const cacheKey = getCacheKey(granularity, since, until);
+  const { data, error, loading } = useAsyncData(
+    () => fetchUsageTimeline({ granularity, since: since || undefined, until: until || undefined }),
+    [granularity, since, until],
+    { cache: timelineCache, cacheKey },
+  );
 
   const entries = data?.timeline ?? [];
   const totals = entries.reduce(
