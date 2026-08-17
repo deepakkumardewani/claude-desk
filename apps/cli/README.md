@@ -7,7 +7,7 @@ npx claude-desk
 # or: bunx claude-desk
 ```
 
-Opens a local UI for skills, plans, commands, CLAUDE.md, agents, plugins, and settings.
+Opens a local UI for skills, plans, commands, CLAUDE.md, agents, plugins, MCP servers, usage, backups, and settings. Switch user vs project scope in the header.
 
 ## Flags
 

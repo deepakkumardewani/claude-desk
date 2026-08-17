@@ -4,7 +4,7 @@
 
 # Claude Desk
 
-Browse and edit your [Claude Code](https://docs.claude.com/en/docs/claude-code) config (`~/.claude`) in the browser — skills, plans, commands, agents, plugins, `CLAUDE.md`, and settings — without hand-editing JSON in the terminal.
+Browse and edit your [Claude Code](https://docs.claude.com/en/docs/claude-code) config (`~/.claude`) in the browser — skills, plans, commands, agents, plugins, MCP, usage, backups, `CLAUDE.md`, and settings — without hand-editing JSON in the terminal.
 
 ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
@@ -35,7 +35,11 @@ Claude Desk gives you a local browser UI for the same config: search it, read it
 
 ## Features
 
+- **User / project scope** — switch between `~/.claude` and a project’s `.claude` from the header
 - **Workspace browser** — navigate skills, plans, commands, agents, plugins, `CLAUDE.md`, and settings from a single local UI
+- **MCP servers** — browse the catalog, add stdio/HTTP servers, and edit env vars without hand-writing JSON
+- **Usage** — sessions, models, prompts, and spend windows from local Claude Code transcripts
+- **Backups** — list and restore config file backups
 - **Readable markdown** — GFM rendering with syntax-highlighted code blocks (Shiki) for skills, plans, commands, and agents
 - **Inline editing** — edit markdown files and save back to disk; unsaved-change protection when leaving a dirty page
 - **Schema-driven settings** — edit `settings.json` through a typed form (dropdowns, toggles, env vars, plugins, marketplaces) instead of raw JSON
@@ -97,15 +101,18 @@ npx claude-desk --keep-alive
 
 ### What you can open
 
-| Area     | Path under `~/.claude`                   |
-| -------- | ---------------------------------------- |
-| Skills   | `skills/`                                |
-| Plans    | `plans/`                                 |
-| Commands | `commands/`                              |
-| Agents   | `agents/`                                |
-| Plugins  | `plugins/` (and related settings fields) |
-| Memory   | `CLAUDE.md`                              |
-| Settings | `settings.json`                          |
+| Area        | Where it lives                                             |
+| ----------- | ---------------------------------------------------------- |
+| Skills      | `skills/`                                                  |
+| Plans       | `plans/`                                                   |
+| Commands    | `commands/`                                                |
+| Agents      | `agents/`                                                  |
+| Plugins     | `plugins/` (and related settings fields)                   |
+| MCP servers | Claude MCP config for the active user/project scope        |
+| Memory      | `CLAUDE.md`                                                |
+| Settings    | `settings.json`                                            |
+| Usage       | Local Claude Code transcripts (global, not scope-switched) |
+| Backups     | Config file backups (global)                               |
 
 ## Development
 
@@ -138,12 +145,12 @@ Contributions are welcome. Keep changes focused and verify locally before openin
 1. **Fork and clone** the repo, then create a branch for your change.
 2. **Install** with `bun install` (Bun `1.3.6` — see `packageManager` in `package.json`).
 3. **Develop** with `bun run dev` (web + API). Use `bunx claude-desk --keep-alive` after a build to exercise the packaged CLI.
-4. **Before you push**, run the same checks CI runs:
+4. **Before you push**, run the same checks CI runs (`bun run ready`, or):
 
    ```bash
    bun run check   # format, lint, typecheck
+   bun run test
    bun run build   # schema → web → CLI
-   bun run test    # optional but recommended
    ```
 
 5. **Open a PR** against `main` with a short description of what changed and why.
