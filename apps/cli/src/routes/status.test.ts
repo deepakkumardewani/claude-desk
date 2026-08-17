@@ -2,6 +2,15 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test, beforeEach, afterEach, vi } from "vite-plus/test";
+
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  return {
+    ...actual,
+    execSync: vi.fn(() => "1.0.0\n"),
+  };
+});
+
 import { createApp } from "../server.js";
 
 const TEST_TOKEN = "a".repeat(64);

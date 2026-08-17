@@ -11,8 +11,22 @@ import {
 } from "./mcp.js";
 import * as backups from "./backups.js";
 import { writeFile, mkdir, rm } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
+
+function realClaudeJsonHasUserServers(names: string[]): boolean {
+  try {
+    const raw = readFileSync(join(homedir(), ".claude.json"), "utf8");
+    const parsed = JSON.parse(raw) as { mcpServers?: Record<string, unknown> };
+    const keys = Object.keys(parsed.mcpServers ?? {});
+    return names.every((name) => keys.includes(name));
+  } catch {
+    return false;
+  }
+}
+
+const HAS_REAL_USER_MCP = realClaudeJsonHasUserServers(["chrome-devtools", "agentmemory"]);
 
 // Real fixture text from `claude mcp list` run on this machine (T0.1)
 const CLAUDE_MCP_LIST_FIXTURE = `Checking MCP server health…
@@ -370,13 +384,16 @@ describe("Phase 1 — getMergedMcpServers", () => {
       expect(result.local).toEqual({});
     });
 
-    // T1.1 verification: real machine snapshot
-    it("finds chrome-devtools and agentmemory with scope user from real ~/.claude.json", async () => {
-      const realPath = join(homedir(), ".claude.json");
-      const result = await readClaudeJson(realPath);
-      expect(Object.keys(result.user)).toContain("chrome-devtools");
-      expect(Object.keys(result.user)).toContain("agentmemory");
-    });
+    // T1.1 verification: real machine snapshot (skipped when that file is absent)
+    it.skipIf(!HAS_REAL_USER_MCP)(
+      "finds chrome-devtools and agentmemory with scope user from real ~/.claude.json",
+      async () => {
+        const realPath = join(homedir(), ".claude.json");
+        const result = await readClaudeJson(realPath);
+        expect(Object.keys(result.user)).toContain("chrome-devtools");
+        expect(Object.keys(result.user)).toContain("agentmemory");
+      },
+    );
   });
 
   // T1.2 — parseMcpListNames + runClaudeMcpList
@@ -487,16 +504,19 @@ describe("Phase 1 — getMergedMcpServers", () => {
 
   // T1.4 — regression against real machine
   describe("Real machine regression (T1.4)", () => {
-    it("returns chrome-devtools and agentmemory from real ~/.claude.json", async () => {
-      const realPath = join(homedir(), ".claude.json");
-      const servers = await getMergedMcpServers({
-        claudeJsonPath: realPath,
-        // Use a no-op CLI runner to avoid slow network in tests
-        cliRunner: async () => "",
-      });
-      const names = servers.map((s) => s.name);
-      expect(names).toContain("chrome-devtools");
-      expect(names).toContain("agentmemory");
-    });
+    it.skipIf(!HAS_REAL_USER_MCP)(
+      "returns chrome-devtools and agentmemory from real ~/.claude.json",
+      async () => {
+        const realPath = join(homedir(), ".claude.json");
+        const servers = await getMergedMcpServers({
+          claudeJsonPath: realPath,
+          // Use a no-op CLI runner to avoid slow network in tests
+          cliRunner: async () => "",
+        });
+        const names = servers.map((s) => s.name);
+        expect(names).toContain("chrome-devtools");
+        expect(names).toContain("agentmemory");
+      },
+    );
   });
 });
