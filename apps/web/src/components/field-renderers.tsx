@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { memo } from "react";
 import { EnvField } from "./EnvField";
 import { FieldDescription } from "./FieldDescription";
 import { HighlightText } from "./HighlightText";
@@ -37,7 +38,13 @@ type HeaderProps = {
   highlightQuery?: string;
 };
 
-function FieldHeader({ id, label, fieldKey, description, highlightQuery }: HeaderProps) {
+const FieldHeader = memo(function FieldHeader({
+  id,
+  label,
+  fieldKey,
+  description,
+  highlightQuery,
+}: HeaderProps) {
   return (
     <div className="min-w-0 space-y-1.5">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -53,9 +60,9 @@ function FieldHeader({ id, label, fieldKey, description, highlightQuery }: Heade
       {description ? <FieldDescription text={description} highlightQuery={highlightQuery} /> : null}
     </div>
   );
-}
+});
 
-function ErrorText({ error }: { error?: string }) {
+const ErrorText = memo(function ErrorText({ error }: { error?: string }) {
   if (!error) {
     return null;
   }
@@ -64,7 +71,7 @@ function ErrorText({ error }: { error?: string }) {
       {error}
     </p>
   );
-}
+});
 
 /** Short controls: header on the left, control on the right (stacks on narrow screens). */
 function InlineField({
@@ -106,7 +113,7 @@ export function StackedField({
   );
 }
 
-function SwitchControl({
+const SwitchControl = memo(function SwitchControl({
   id,
   checked,
   readOnly,
@@ -152,7 +159,7 @@ function SwitchControl({
       />
     </label>
   );
-}
+});
 
 export function ToggleField({
   id,

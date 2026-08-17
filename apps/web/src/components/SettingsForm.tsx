@@ -1,9 +1,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SETTINGS_GROUP_ORDER, claudeSettingsSchema, type ClaudeSettings } from "schema";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Controller, useForm, useFormState, type FieldErrors } from "react-hook-form";
-import { EditableField, type SchemaField } from "./field-renderers";
+import { useForm, useFormState, FormProvider, type FieldErrors } from "react-hook-form";
+import type { SchemaField } from "./field-renderers";
 import { SCROLL_DURATION_MS, scrollElementIntoView, scrollToTop } from "../lib/scroll";
+import { useScrollSpy } from "./useScrollSpy";
+import { SettingsSection } from "./SettingsSection";
+import {
+  SearchIcon,
+  ClearSearchIcon,
+  ArrowUpIcon,
+  CheckCircleIcon,
+  AlertCircleIcon,
+} from "./icons";
 
 export type SettingsFormProps = {
   fields: SchemaField[];
@@ -20,19 +29,10 @@ type SettingsSection = {
   fields: SchemaField[];
 };
 
-const SCROLL_TOP_THRESHOLD = 240;
 const NOTIFICATION_DURATION_MS = 3200;
 
 function sectionId(label: string): string {
   return `settings-section-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-}
-
-function fieldError(errors: FieldErrors<ClaudeSettings>, key: string): string | undefined {
-  const error = errors[key as keyof ClaudeSettings];
-  if (!error) {
-    return undefined;
-  }
-  return typeof error.message === "string" ? error.message : String(error.message ?? "");
 }
 
 function countErrors(errors: FieldErrors<ClaudeSettings>): number {
@@ -81,94 +81,6 @@ function filterSections(sections: SettingsSection[], query: string): SettingsSec
       ),
     }))
     .filter((section) => section.fields.length > 0);
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="size-4 text-text-muted"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
-
-function ClearSearchIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="size-3.5"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2.5"
-      viewBox="0 0 24 24"
-    >
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
-function ArrowUpIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="size-4"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <path d="m5 15 7-7 7 7" />
-    </svg>
-  );
-}
-
-function CheckCircleIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="size-4 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <path d="M22 4 12 14.01l-3-3" />
-    </svg>
-  );
-}
-
-function AlertCircleIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="size-4 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 8v4M12 16h.01" />
-    </svg>
-  );
 }
 
 function FormNotification({
@@ -220,15 +132,19 @@ export function SettingsForm({
   const filteredSections = useMemo(() => filterSections(sections, query), [sections, query]);
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? "");
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const sectionRefs = useRef(new Map<string, HTMLElement>());
-  const contentScrollRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const isProgrammaticScroll = useRef(false);
 
-  const { control, handleSubmit, reset } = useForm<ClaudeSettings>({
+  const { sectionRefs, contentScrollRef, isProgrammaticScroll } = useScrollSpy({
+    sections: filteredSections,
+    onActiveSectionChange: setActiveSectionId,
+    onShowScrollTopChange: setShowScrollTop,
+  });
+
+  const methods = useForm<ClaudeSettings>({
     resolver: zodResolver(claudeSettingsSchema),
     defaultValues,
   });
+  const { control, handleSubmit, reset } = methods;
   const { errors, isSubmitting, isSubmitted, isDirty, dirtyFields } = useFormState({ control });
   const validationErrorCount = countErrors(errors);
   const dirtyCount = Object.keys(dirtyFields).length;
@@ -263,66 +179,6 @@ export function SettingsForm({
   }, [activeSectionId, filteredSections]);
 
   useEffect(() => {
-    const container = contentScrollRef.current;
-    if (!container) {
-      return;
-    }
-
-    const handleScroll = () => {
-      setShowScrollTop(container.scrollTop > SCROLL_TOP_THRESHOLD);
-    };
-
-    handleScroll();
-    container.addEventListener("scroll", handleScroll, { passive: true });
-
-    return () => {
-      container.removeEventListener("scroll", handleScroll);
-    };
-  }, [filteredSections]);
-
-  useEffect(() => {
-    const container = contentScrollRef.current;
-    if (
-      !container ||
-      filteredSections.length === 0 ||
-      typeof IntersectionObserver === "undefined"
-    ) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (isProgrammaticScroll.current) {
-          return;
-        }
-
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((left, right) => right.intersectionRatio - left.intersectionRatio);
-
-        const nextId = visible[0]?.target.id;
-        if (nextId) {
-          setActiveSectionId(nextId);
-        }
-      },
-      {
-        root: container,
-        rootMargin: "-12% 0px -55% 0px",
-        threshold: [0, 0.25, 0.5, 0.75, 1],
-      },
-    );
-
-    for (const section of filteredSections) {
-      const element = sectionRefs.current.get(section.id);
-      if (element) {
-        observer.observe(element);
-      }
-    }
-
-    return () => observer.disconnect();
-  }, [filteredSections]);
-
-  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
         return;
@@ -347,234 +203,205 @@ export function SettingsForm({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  async function scrollToSection(section: SettingsSection) {
+  const scrollToSection = async (section: SettingsSection) => {
     const element = sectionRefs.current.get(section.id);
-    const container = contentScrollRef.current;
-    if (!element || !container) {
+    if (!element || !contentScrollRef.current) {
       return;
     }
 
     setActiveSectionId(section.id);
     isProgrammaticScroll.current = true;
-    await scrollElementIntoView(element, 24, container);
+    await scrollElementIntoView(element, 24, contentScrollRef.current);
     window.setTimeout(() => {
       isProgrammaticScroll.current = false;
     }, SCROLL_DURATION_MS + 80);
-  }
+  };
 
-  async function handleScrollToTop() {
-    const container = contentScrollRef.current;
-    if (!container) {
+  const handleScrollToTop = async () => {
+    if (!contentScrollRef.current) {
       return;
     }
 
     isProgrammaticScroll.current = true;
-    await scrollToTop(container);
+    await scrollToTop(contentScrollRef.current);
     window.setTimeout(() => {
       isProgrammaticScroll.current = false;
     }, SCROLL_DURATION_MS + 80);
-  }
+  };
 
   return (
-    <form
-      className="flex min-h-0 flex-1 flex-col"
-      onSubmit={handleSubmit((values) => onSubmit(values))}
-      noValidate
-    >
-      <div className="grid min-h-0 flex-1 gap-8 lg:grid-cols-[12rem_minmax(0,1fr)]">
-        <nav aria-label="Settings sections" className="flex min-h-0 flex-col">
-          <div className="shrink-0 pb-4">
-            <label htmlFor="settings-search" className="sr-only">
-              Search settings
-            </label>
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-                <SearchIcon />
-              </span>
-              <input
-                ref={searchInputRef}
-                id="settings-search"
-                type="search"
-                role="searchbox"
-                value={query}
-                placeholder="Search…"
-                onChange={(event) => setQuery(event.target.value)}
-                className="settings-search w-full rounded-lg border border-border-subtle bg-surface-raised py-2 pl-9 pr-9 text-sm text-text transition placeholder:text-text-muted focus:border-accent/40 focus:outline-none focus:ring-0"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={() => {
-                    setQuery("");
-                    searchInputRef.current?.focus();
-                  }}
-                  className="absolute inset-y-0 right-2 flex items-center rounded p-1 text-accent transition hover:bg-accent/10"
-                >
-                  <ClearSearchIcon />
-                </button>
-              ) : null}
-            </div>
-            {isSearching ? (
-              <p className="mt-2 text-xs text-text-muted">
-                {resultCount} result{resultCount === 1 ? "" : "s"}
-              </p>
-            ) : (
-              <p className="mt-2 text-xs text-text-muted">Press / to search</p>
-            )}
-          </div>
-
-          <ul className="flex min-h-0 flex-1 gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-y-auto lg:overflow-x-visible lg:pb-0">
-            {filteredSections.map((section) => {
-              const isActive = activeSectionId === section.id;
-
-              return (
-                <li key={section.id} className="shrink-0">
+    <FormProvider {...methods}>
+      <form
+        className="flex min-h-0 flex-1 flex-col"
+        onSubmit={handleSubmit((values) => onSubmit(values))}
+        noValidate
+      >
+        <div className="grid min-h-0 flex-1 gap-8 lg:grid-cols-[12rem_minmax(0,1fr)]">
+          <nav aria-label="Settings sections" className="flex min-h-0 flex-col">
+            <div className="shrink-0 pb-4">
+              <label htmlFor="settings-search" className="sr-only">
+                Search settings
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+                  <SearchIcon />
+                </span>
+                <input
+                  ref={searchInputRef}
+                  id="settings-search"
+                  type="search"
+                  role="searchbox"
+                  value={query}
+                  placeholder="Search…"
+                  onChange={(event) => setQuery(event.target.value)}
+                  className="settings-search w-full rounded-lg border border-border-subtle bg-surface-raised py-2 pl-9 pr-9 text-sm text-text transition placeholder:text-text-muted focus:border-accent/40 focus:outline-none focus:ring-0"
+                />
+                {query ? (
                   <button
                     type="button"
-                    aria-current={isActive ? "true" : undefined}
-                    onClick={() => scrollToSection(section)}
-                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      isActive
-                        ? "bg-accent text-accent-fg"
-                        : "text-text-muted hover:bg-surface-raised hover:text-text"
-                    }`}
+                    aria-label="Clear search"
+                    onClick={() => {
+                      setQuery("");
+                      searchInputRef.current?.focus();
+                    }}
+                    className="absolute inset-y-0 right-2 flex items-center rounded p-1 text-accent transition hover:bg-accent/10"
                   >
-                    {section.label}
-                    {isSearching ? (
-                      <span className="ml-1 opacity-70">({section.fields.length})</span>
-                    ) : null}
+                    <ClearSearchIcon />
                   </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-
-        <div
-          ref={contentScrollRef}
-          className="relative min-h-0 overflow-y-auto overscroll-contain pr-1"
-        >
-          <div className="space-y-12 pb-8">
-            {filteredSections.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border-subtle bg-surface-raised p-8 text-center">
-                <p className="text-sm font-medium text-text">No settings match your search</p>
-                <p className="mt-1 text-sm text-text-muted">
-                  Try a different keyword or clear the search field.
-                </p>
+                ) : null}
               </div>
-            ) : (
-              filteredSections.map((section) => (
-                <section
-                  key={section.id}
-                  id={section.id}
-                  ref={(element) => {
-                    if (element) {
-                      sectionRefs.current.set(section.id, element);
-                    } else {
-                      sectionRefs.current.delete(section.id);
-                    }
-                  }}
-                  aria-labelledby={`${section.id}-heading`}
-                  className="scroll-mt-6 space-y-5"
-                >
-                  <h3
-                    id={`${section.id}-heading`}
-                    className="font-display text-xl font-semibold tracking-tight text-text"
-                  >
-                    {section.label}{" "}
-                    <span className="font-sans text-base font-normal text-text-muted">
-                      ({section.fields.length})
-                    </span>
-                  </h3>
-
-                  <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-raised shadow-sm">
-                    <div className="divide-y divide-border-subtle">
-                      {section.fields.map((field) => (
-                        <Controller
-                          key={field.key}
-                          name={field.key as keyof ClaudeSettings}
-                          control={control}
-                          render={({ field: controllerField }) => (
-                            <EditableField
-                              field={field}
-                              value={controllerField.value}
-                              onChange={controllerField.onChange}
-                              error={fieldError(errors, field.key)}
-                              highlightQuery={isSearching ? query : undefined}
-                            />
-                          )}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </section>
-              ))
-            )}
-          </div>
-
-          {showScrollTop ? (
-            <button
-              type="button"
-              aria-label="Scroll to top"
-              onClick={() => handleScrollToTop()}
-              className="sticky bottom-4 left-full ml-auto mr-0 inline-flex size-10 -translate-x-4 items-center justify-center rounded-full border border-border-subtle bg-surface-raised text-text shadow-md transition hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <ArrowUpIcon />
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      {isDirty || isSubmitting || submitError || submitSuccess ? (
-        <div className="shrink-0 pt-3">
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 shadow-md">
-            <div className="min-w-0 flex-1">
-              {submitError ? (
-                <FormNotification
-                  type="error"
-                  message={submitError}
-                  onDismiss={() => onDismissNotification?.()}
-                />
-              ) : submitSuccess ? (
-                <FormNotification
-                  type="success"
-                  message={submitSuccess}
-                  onDismiss={() => onDismissNotification?.()}
-                />
-              ) : isSubmitted && validationErrorCount > 0 ? (
-                <p className="text-sm text-danger" role="alert">
-                  Fix {validationErrorCount} validation error
-                  {validationErrorCount === 1 ? "" : "s"} before saving.
+              {isSearching ? (
+                <p className="mt-2 text-xs text-text-muted">
+                  {resultCount} result{resultCount === 1 ? "" : "s"}
                 </p>
               ) : (
-                <p className="text-sm text-text-muted">
-                  <span className="font-medium text-text">{dirtyCount}</span> unsaved change
-                  {dirtyCount === 1 ? "" : "s"}
-                </p>
+                <p className="mt-2 text-xs text-text-muted">Press / to search</p>
               )}
             </div>
 
-            {isDirty ? (
+            <ul className="flex min-h-0 flex-1 gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-y-auto lg:overflow-x-visible lg:pb-0">
+              {filteredSections.map((section) => {
+                const isActive = activeSectionId === section.id;
+
+                return (
+                  <li key={section.id} className="shrink-0">
+                    <button
+                      type="button"
+                      aria-current={isActive ? "true" : undefined}
+                      onClick={() => scrollToSection(section)}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        isActive
+                          ? "bg-accent text-accent-fg"
+                          : "text-text-muted hover:bg-surface-raised hover:text-text"
+                      }`}
+                    >
+                      {section.label}
+                      {isSearching ? (
+                        <span className="ml-1 opacity-70">({section.fields.length})</span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          <div
+            ref={contentScrollRef}
+            className="relative min-h-0 overflow-y-auto overscroll-contain pr-1"
+          >
+            <div className="space-y-12 pb-8">
+              {filteredSections.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border-subtle bg-surface-raised p-8 text-center">
+                  <p className="text-sm font-medium text-text">No settings match your search</p>
+                  <p className="mt-1 text-sm text-text-muted">
+                    Try a different keyword or clear the search field.
+                  </p>
+                </div>
+              ) : (
+                filteredSections.map((section) => (
+                  <SettingsSection
+                    key={section.id}
+                    id={section.id}
+                    label={section.label}
+                    fields={section.fields}
+                    errors={errors}
+                    highlightQuery={isSearching ? query : undefined}
+                    sectionRef={(element) => {
+                      if (element) {
+                        sectionRefs.current.set(section.id, element);
+                      } else {
+                        sectionRefs.current.delete(section.id);
+                      }
+                    }}
+                  />
+                ))
+              )}
+            </div>
+
+            {showScrollTop ? (
               <button
                 type="button"
-                onClick={() => reset()}
-                disabled={isSubmitting}
-                className="shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-text-muted transition hover:bg-surface-soft hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Scroll to top"
+                onClick={() => handleScrollToTop()}
+                className="sticky bottom-4 left-full ml-auto mr-0 inline-flex size-10 -translate-x-4 items-center justify-center rounded-full border border-border-subtle bg-surface-raised text-text shadow-md transition hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                Discard
+                <ArrowUpIcon />
               </button>
             ) : null}
-            <button
-              type="submit"
-              disabled={!canSave}
-              className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isSubmitting ? "Saving…" : "Save settings"}
-            </button>
           </div>
         </div>
-      ) : null}
-    </form>
+
+        {isDirty || isSubmitting || submitError || submitSuccess ? (
+          <div className="shrink-0 pt-3">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 shadow-md">
+              <div className="min-w-0 flex-1">
+                {submitError ? (
+                  <FormNotification
+                    type="error"
+                    message={submitError}
+                    onDismiss={() => onDismissNotification?.()}
+                  />
+                ) : submitSuccess ? (
+                  <FormNotification
+                    type="success"
+                    message={submitSuccess}
+                    onDismiss={() => onDismissNotification?.()}
+                  />
+                ) : isSubmitted && validationErrorCount > 0 ? (
+                  <p className="text-sm text-danger" role="alert">
+                    Fix {validationErrorCount} validation error
+                    {validationErrorCount === 1 ? "" : "s"} before saving.
+                  </p>
+                ) : (
+                  <p className="text-sm text-text-muted">
+                    <span className="font-medium text-text">{dirtyCount}</span> unsaved change
+                    {dirtyCount === 1 ? "" : "s"}
+                  </p>
+                )}
+              </div>
+
+              {isDirty ? (
+                <button
+                  type="button"
+                  onClick={() => reset()}
+                  disabled={isSubmitting}
+                  className="shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-text-muted transition hover:bg-surface-soft hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Discard
+                </button>
+              ) : null}
+              <button
+                type="submit"
+                disabled={!canSave}
+                className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isSubmitting ? "Saving…" : "Save settings"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </form>
+    </FormProvider>
   );
 }
