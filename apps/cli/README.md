@@ -7,13 +7,13 @@ npx claude-desk
 # or: bunx claude-desk
 ```
 
-Opens a local UI for skills, plans, commands, CLAUDE.md, agents, plugins, MCP servers, usage, backups, and settings. Switch user vs project scope in the header.
+Opens a local UI for skills, plans, commands, CLAUDE.md, agents, plugins, MCP servers, usage, backups, and settings. Switch user vs project scope in the header. The opened URL includes `#token=...` for local API auth.
 
 ## Flags
 
 | Flag                | Description                                          |
 | ------------------- | ---------------------------------------------------- |
-| `--port <n>` / `-p` | Listen port (default `3847`)                         |
+| `--port <n>` / `-p` | Listen port (default **random**)                     |
 | `--keep-alive`      | Keep the server running after the browser tab closes |
 
 Default mode shuts down when the browser tab closes (or on Ctrl+C).

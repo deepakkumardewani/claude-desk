@@ -37,25 +37,25 @@ Claude Desk gives you a local browser UI for the same config: search it, read it
 
 - **User / project scope** — switch between `~/.claude` and a project’s `.claude` from the header
 - **Workspace browser** — navigate skills, plans, commands, agents, plugins, `CLAUDE.md`, and settings from a single local UI
-- **MCP servers** — browse the catalog, add stdio/HTTP servers, and edit env vars without hand-writing JSON
-- **Usage** — sessions, models, prompts, and spend windows from local Claude Code transcripts
+- **MCP servers** — catalog of installed servers plus custom stdio/HTTP servers and env vars, without hand-writing JSON
+- **Usage** — local Claude Code transcripts with estimated spend; tabs Overview, Timeline, Models, Projects, Sessions, Windows, and Prompts
 - **Backups** — list and restore config file backups
 - **Readable markdown** — GFM rendering with syntax-highlighted code blocks (Shiki) for skills, plans, commands, and agents
 - **Inline editing** — edit markdown files and save back to disk; unsaved-change protection when leaving a dirty page
 - **Schema-driven settings** — edit `settings.json` through a typed form (dropdowns, toggles, env vars, plugins, marketplaces) instead of raw JSON
 - **Context inspector** — see how context / usage stacks up across your workspace
 - **Search** — filter your workspace quickly from the home view
-- **Deep links** — open a specific skill or file via URL (`/skills/:name`, and the other category routes)
+- **Deep links** — open a file via scoped URL (`/user/skills/:name`, `/project/:projectId/...`)
 - **Theme toggle** — light / dark UI
-- **Safe by default** — API only reaches a fixed set of paths under `~/.claude` (no arbitrary filesystem access); settings writes are validated before save
+- **Safe by default** — API only reaches curated paths under `~/.claude` and the active project’s `.claude` (no arbitrary filesystem access); settings writes are still Zod-validated before save
 
 ## What's inside
 
-**Home** — search your config, jump into categories, and glance at current settings.
+**Home** — search user or project config, jump into categories, and reopen recently viewed files. Scope switcher is in the header.
 
 ![Home](./docs/images/home.png)
 
-**Settings** — schema-driven form for `settings.json` with searchable sections.
+**Settings** — schema-driven form for `settings.json` with searchable grouped sections.
 
 ![Settings](./docs/images/settings.png)
 
@@ -63,9 +63,17 @@ Claude Desk gives you a local browser UI for the same config: search it, read it
 
 ![Workspace](./docs/images/workspace.png)
 
-**Skills** — file-tree sidebar for browsing and opening markdown config files.
+**Skills** — file-tree sidebar plus markdown preview/editor for skills, plans, commands, and agents.
 
 ![Skills](./docs/images/skills.png)
+
+**Usage** — analytics from local transcripts: overview, timeline, models, projects, sessions, spend windows, and prompts.
+
+![Usage](./docs/images/usage.png)
+
+**MCP servers** — installed servers for the active scope, plus a catalog to add stdio or HTTP servers.
+
+![MCP](./docs/images/mcp.png)
 
 ## Quick start
 
@@ -88,9 +96,11 @@ The app binds to localhost, opens your browser, and serves the prebuilt UI. No a
 claude-desk [options]
 
 Options:
-  -p, --port <n>    Listen port (default: 3847)
+  -p, --port <n>    Listen port (default: random)
   --keep-alive      Keep the server running after the browser tab closes
 ```
+
+The listen URL includes `#token=...` for local API auth.
 
 Examples:
 
@@ -109,8 +119,9 @@ npx claude-desk --keep-alive
 | Agents      | `agents/`                                                  |
 | Plugins     | `plugins/` (and related settings fields)                   |
 | MCP servers | Claude MCP config for the active user/project scope        |
-| Memory      | `CLAUDE.md`                                                |
+| CLAUDE.md   | `CLAUDE.md`                                                |
 | Settings    | `settings.json`                                            |
+| Workspace   | Context inspector (global, not scope-switched)             |
 | Usage       | Local Claude Code transcripts (global, not scope-switched) |
 | Backups     | Config file backups (global)                               |
 
@@ -160,19 +171,20 @@ Please keep PRs scoped (one concern per PR when practical), follow existing patt
 ## How it works
 
 ```
-┌────────────┐        localhost         ┌──────────────────────────┐
-│  Browser   │ ◀──────────────────────▶ │  claude-desk (Hono) │
+┌────────────┐   localhost + #token=…   ┌──────────────────────────┐
+│  Browser   │ ◀──────────────────────▶ │  claude-desk (Hono)      │
 │  React SPA │                          │  127.0.0.1:<port>        │
 └────────────┘                          └────────────┬─────────────┘
                                                      │ scoped read/write
-                                          ~/.claude  (skills, plans, …)
+                              ~/.claude  and  <project>/.claude
 ```
 
-`npx claude-desk` starts the server, opens the URL, and serves the prebuilt SPA from the package. The UI talks only to that local server; the server only touches Claude Code config paths under `~/.claude`.
+`npx claude-desk` starts the server, opens the URL, and serves the prebuilt SPA from the package. The localhost SPA talks to claude-desk (Hono) on 127.0.0.1; the URL hash carries a local token. The server reads and writes scoped Claude config under `~/.claude` and the selected project’s `.claude`.
 
 ## Privacy & security
 
 - **Local only** — binds to localhost; nothing is exposed to your LAN or the internet by default
+- **Local bearer token** — API auth uses a token in the URL hash (`#token=...`), not a cloud account
 - **No telemetry / no accounts** — the tool does not phone home
-- **Scoped file access** — only the curated Claude config categories are readable/writable through the API
+- **Scoped file access** — only curated paths under `~/.claude` and the active project’s `.claude` are readable/writable through the API
 - **Validated settings writes** — `settings.json` updates go through the shared Zod schema before disk write
