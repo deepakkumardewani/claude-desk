@@ -277,7 +277,15 @@ async function writeLocalMcpConfig(config: McpConfig, projectDir?: string): Prom
   await writeFile(claudeJsonPath, JSON.stringify({ ...root, projects }, null, 2), "utf-8");
 }
 
-export async function readMcpConfig(scope: McpScope = "user", projectDir?: string) {
+export async function readMcpConfig(
+  scope: McpScope = "user",
+  projectDir?: string,
+  preReadConfig?: McpConfig,
+) {
+  if (preReadConfig !== undefined) {
+    return preReadConfig;
+  }
+
   if (scope === "local") {
     return readLocalMcpConfig(projectDir);
   }
@@ -384,9 +392,12 @@ export async function removeMcpServer(
   await writeMcpConfig(config, scope, projectDir);
 }
 
-/** .mcp.json servers. Without projectDir, user scope only. */
-export async function getAllMcpServers(projectDir?: string) {
-  const userConfig = await readMcpConfig("user");
+/** .mcp.json servers. Without projectDir, user scope only. Optionally accepts pre-read configs to avoid duplicate file reads. */
+export async function getAllMcpServers(
+  projectDir?: string,
+  opts?: { userConfig?: McpConfig; projectConfig?: McpConfig },
+) {
+  const userConfig = await readMcpConfig("user", undefined, opts?.userConfig);
   const servers: Record<string, { server: any; scope: McpScope }> = {};
 
   for (const [name, server] of Object.entries(userConfig.mcpServers || {})) {
@@ -397,7 +408,7 @@ export async function getAllMcpServers(projectDir?: string) {
     return servers;
   }
 
-  const projectConfig = await readMcpConfig("project", projectDir);
+  const projectConfig = await readMcpConfig("project", projectDir, opts?.projectConfig);
   for (const [name, server] of Object.entries(projectConfig.mcpServers || {})) {
     servers[name] = { server, scope: "project" };
   }

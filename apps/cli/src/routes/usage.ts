@@ -23,17 +23,69 @@ import {
   type TimelineGranularity,
   type PromptSummary,
 } from "../usage/aggregate.js";
+import type { UsageRecord } from "../usage/parser.js";
 
-const HEATMAP_DAYS = 84;
-const DEFAULT_SESSION_LIMIT = 20;
-const DEFAULT_WINDOW_LIMIT = 20;
-const DEFAULT_PROMPT_LIMIT = 50;
+// Constants for usage API configuration
+const USAGE = {
+  HEATMAP_DAYS: 84,
+  DEFAULT_SESSION_LIMIT: 20,
+  DEFAULT_WINDOW_LIMIT: 20,
+  DEFAULT_PROMPT_LIMIT: 50,
+  CACHE_TTL_MS: 5000, // 5 second TTL for record cache
+} as const;
 
 type ApiResult<T> = { status: 200; body: T } | { status: 500; body: { error: string } };
 
 function failure(error: unknown): { status: 500; body: { error: string } } {
   const message = error instanceof Error ? error.message : "unable to fetch usage data";
   return { status: 500, body: { error: message } };
+}
+
+// --- Memoized records cache ---
+interface CacheState {
+  records: UsageRecord[] | null;
+  promise: Promise<UsageRecord[]> | null;
+  expiresAt: number;
+}
+
+const recordsCache: CacheState = {
+  records: null,
+  promise: null,
+  expiresAt: 0,
+};
+
+/** Load records with short-TTL caching. Concurrent calls share one in-flight promise. */
+async function loadRecordsWithCache(): Promise<UsageRecord[]> {
+  const now = Date.now();
+
+  // Return cached data if still valid
+  if (recordsCache.records !== null && now < recordsCache.expiresAt) {
+    return recordsCache.records;
+  }
+
+  // Return in-flight promise if one exists (concurrent caller support)
+  if (recordsCache.promise !== null) {
+    return recordsCache.promise;
+  }
+
+  // Create new fetch promise
+  recordsCache.promise = loadAllRecords();
+
+  try {
+    const records = await recordsCache.promise;
+    recordsCache.records = records;
+    recordsCache.expiresAt = now + USAGE.CACHE_TTL_MS;
+    return records;
+  } finally {
+    recordsCache.promise = null;
+  }
+}
+
+/** Clear the records cache (for testing). */
+export function clearRecordsCache(): void {
+  recordsCache.records = null;
+  recordsCache.promise = null;
+  recordsCache.expiresAt = 0;
 }
 
 export interface UsageOverviewResponse {
@@ -50,7 +102,7 @@ export interface UsageOverviewResponse {
  */
 export async function getUsageOverviewResponse(): Promise<ApiResult<UsageOverviewResponse>> {
   try {
-    const records = await loadAllRecords();
+    const records = await loadRecordsWithCache();
     const activeWindow = computeBlocks(records, { limit: 1 }).find((block) => block.active) ?? null;
 
     return {
@@ -59,7 +111,7 @@ export async function getUsageOverviewResponse(): Promise<ApiResult<UsageOvervie
         totals: computeOverview(records),
         today: computeToday(records),
         activeWindow,
-        heatmap: computeHeatmap(records, HEATMAP_DAYS),
+        heatmap: computeHeatmap(records, USAGE.HEATMAP_DAYS),
         pricingAsOf: PRICING_AS_OF,
       },
     };
@@ -80,7 +132,7 @@ export async function getUsageModelsResponse(
   filter: PeriodFilter,
 ): Promise<ApiResult<UsageModelsResponse>> {
   try {
-    const records = await loadAllRecords();
+    const records = await loadRecordsWithCache();
     return { status: 200, body: { models: computeModels(filterByPeriod(records, filter)) } };
   } catch (error) {
     return failure(error);
@@ -99,7 +151,7 @@ export async function getUsageProjectsResponse(
   filter: PeriodFilter,
 ): Promise<ApiResult<UsageProjectsResponse>> {
   try {
-    const records = await loadAllRecords();
+    const records = await loadRecordsWithCache();
     return { status: 200, body: { projects: computeProjects(filterByPeriod(records, filter)) } };
   } catch (error) {
     return failure(error);
@@ -131,7 +183,7 @@ export async function getUsageTimelineResponse({
   try {
     const resolvedGranularity: TimelineGranularity =
       granularity === "monthly" ? "monthly" : "daily";
-    const records = await loadAllRecords();
+    const records = await loadRecordsWithCache();
     const filtered = filterByPeriod(records, { since, until });
     const uniqueSessionCount = new Set(filtered.map((r) => r.sessionId)).size;
     return {
@@ -162,10 +214,10 @@ export interface SessionsParams {
  */
 export async function getUsageSessionsResponse({
   sort,
-  limit = DEFAULT_SESSION_LIMIT,
+  limit = USAGE.DEFAULT_SESSION_LIMIT,
 }: SessionsParams): Promise<ApiResult<UsageSessionsResponse>> {
   try {
-    const records = await loadAllRecords();
+    const records = await loadRecordsWithCache();
     const resolvedSort = sort === "recent" ? "recent" : "cost";
     return {
       status: 200,
@@ -185,10 +237,10 @@ export interface UsageWindowsResponse {
  * The most recent 5h billing windows, newest first.
  */
 export async function getUsageWindowsResponse(
-  limit: number = DEFAULT_WINDOW_LIMIT,
+  limit: number = USAGE.DEFAULT_WINDOW_LIMIT,
 ): Promise<ApiResult<UsageWindowsResponse>> {
   try {
-    const records = await loadAllRecords();
+    const records = await loadRecordsWithCache();
     return { status: 200, body: { windows: computeBlocks(records, { limit }) } };
   } catch (error) {
     return failure(error);
@@ -211,7 +263,7 @@ export interface PromptsParams {
  * Recent user prompts with assistant cost attributed via parentUuid.
  */
 export async function getUsagePromptsResponse({
-  limit = DEFAULT_PROMPT_LIMIT,
+  limit = USAGE.DEFAULT_PROMPT_LIMIT,
   since,
   until,
   project,

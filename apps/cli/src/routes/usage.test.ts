@@ -9,6 +9,7 @@ import {
   getUsageSessionsResponse,
   getUsageWindowsResponse,
   getUsagePromptsResponse,
+  clearRecordsCache,
 } from "./usage.js";
 
 function makeRecord(overrides: Partial<UsageRecord> = {}): UsageRecord {
@@ -50,6 +51,7 @@ const mockComputePrompts = vi.mocked(computePrompts);
 
 describe("Usage API Routes", () => {
   beforeEach(() => {
+    clearRecordsCache();
     mockLoadAllRecords.mockReset().mockResolvedValue(sampleRecords);
     mockComputePrompts.mockReset().mockResolvedValue([]);
   });
