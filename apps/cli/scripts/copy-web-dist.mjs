@@ -2,14 +2,24 @@ import { cpSync, existsSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = dirname(fileURLToPath(import.meta.url));
-const src = resolve(root, "../../web/dist");
-const dest = resolve(root, "../web");
+const scriptsDir = dirname(fileURLToPath(import.meta.url));
+const cliDir = resolve(scriptsDir, "..");
+const repoRoot = resolve(cliDir, "../..");
+const webDist = resolve(repoRoot, "apps/web/dist");
+const webDest = resolve(cliDir, "web");
+const licenseSrc = resolve(repoRoot, "LICENSE");
+const licenseDest = resolve(cliDir, "LICENSE");
 
-if (!existsSync(resolve(src, "index.html"))) {
-  throw new Error(`Missing ${src}/index.html — build the web app first`);
+if (!existsSync(resolve(webDist, "index.html"))) {
+  throw new Error(`Missing ${webDist}/index.html — build the web app first`);
 }
 
-rmSync(dest, { recursive: true, force: true });
-cpSync(src, dest, { recursive: true });
-console.log(`copied ${src} -> ${dest}`);
+if (!existsSync(licenseSrc)) {
+  throw new Error(`Missing ${licenseSrc}`);
+}
+
+rmSync(webDest, { recursive: true, force: true });
+cpSync(webDist, webDest, { recursive: true });
+cpSync(licenseSrc, licenseDest);
+console.log(`copied ${webDist} -> ${webDest}`);
+console.log(`copied ${licenseSrc} -> ${licenseDest}`);

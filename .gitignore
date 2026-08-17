@@ -29,6 +29,9 @@ dist-ssr
 # Packaged SPA assets (copied from apps/web/dist at build time)
 apps/cli/web/
 
+# Copied from repo-root LICENSE at CLI build / pack time
+apps/cli/LICENSE
+
 # Verification artifacts
 .verification/
 .verification-screenshots/
