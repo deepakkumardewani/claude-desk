@@ -54,7 +54,8 @@ export function CategoryIndex({ category }: Props) {
           );
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Failed to fetch settings:", err);
         if (!cancelled) {
           setPlugins([]);
         }
