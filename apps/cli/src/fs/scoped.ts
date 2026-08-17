@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import type { Scope, SettingsLayer } from "schema";
+import { PathEscapeError } from "../errors.js";
 
 export const CATEGORY_IDS = [
   "skills",
@@ -100,7 +101,7 @@ function assertInside(root: string, target: string): void {
   const resolvedRoot = resolve(root);
   const resolvedTarget = resolve(target);
   if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(resolvedRoot + sep)) {
-    throw new Error("path escapes claude root");
+    throw new PathEscapeError("path escapes claude root");
   }
 }
 
@@ -121,13 +122,13 @@ export function safePath(
   const isFileCategory = category === "claudeMd" || category === "settings";
   if (isFileCategory) {
     if (relative !== "" && target !== base) {
-      throw new Error("path escapes category root");
+      throw new PathEscapeError("path escapes category root");
     }
     return base;
   }
 
   if (target !== base && !target.startsWith(base + sep)) {
-    throw new Error("path escapes category root");
+    throw new PathEscapeError("path escapes category root");
   }
 
   return target;

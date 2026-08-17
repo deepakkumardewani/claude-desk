@@ -250,7 +250,14 @@ export function createApp(options: { token: string }): Hono {
     return c.json(result.body, result.status);
   });
 
-  app.onError((_error, c) => c.json({ error: "internal server error" }, 500));
+  app.onError((error, c) => {
+    const method = c.req.method;
+    const path = c.req.path;
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error(`error handling ${method} ${path}: ${message}`, stack ? `\n${stack}` : "");
+    return c.json({ error: "internal server error" }, 500);
+  });
 
   return app;
 }

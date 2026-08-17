@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from "citty";
 import { startStudio } from "./studio.js";
+import { parsePort } from "./port.js";
 
 const mainCommand = defineCommand({
   meta: {
@@ -22,10 +23,7 @@ const mainCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const port = Number(args.port);
-    if (!Number.isFinite(port) || !Number.isInteger(port) || port < 0) {
-      throw new Error(`Invalid --port: ${args.port}`);
-    }
+    const port = parsePort(args.port);
 
     const keepAlive = Boolean(args["keep-alive"]);
     const running = await startStudio({ port, keepAlive });

@@ -86,7 +86,9 @@ export async function startStudio(options: StartOptions): Promise<RunningServer>
   let closeServer: (() => Promise<void>) | null = null;
 
   const lifecycle = createLifecycleState(() => {
-    void closeServer?.().finally(() => resolveExit());
+    void closeServer?.()
+      .catch((err) => console.error("failed to close server:", err))
+      .finally(() => resolveExit());
   });
   lifecycle.shouldExit = !options.keepAlive;
 

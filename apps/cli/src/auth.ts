@@ -41,7 +41,9 @@ function decodedPathname(url: string): string {
   const pathname = new URL(url).pathname;
   try {
     return decodeURIComponent(pathname);
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown error";
+    console.warn(`failed to decode pathname: ${message}`);
     return pathname;
   }
 }
@@ -61,7 +63,9 @@ export function registerSecurity(app: Hono): void {
         if (!isLoopbackHostname(hostname)) {
           return c.json({ error: "forbidden_origin" }, 403);
         }
-      } catch {
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "unknown error";
+        console.warn(`failed to parse origin URL: ${message}`);
         return c.json({ error: "forbidden_origin" }, 403);
       }
     }

@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import open from "open";
 import { createToken } from "./auth.js";
 import { createApp } from "./server.js";
+import { parsePort } from "./port.js";
 
 const DEFAULT_UI_ORIGIN = "http://127.0.0.1:5173";
 const UI_WAIT_MS = 20_000;
@@ -15,21 +16,26 @@ const launchUrl = `${uiOrigin}/#token=${token}`;
 
 app.get("/", (c) => c.redirect(launchUrl));
 
-let port = Number(process.env.PORT ?? 3000);
+let port = parsePort(process.env.PORT ?? 3000);
 const portIndex = process.argv.indexOf("--port");
 if (portIndex !== -1 && process.argv[portIndex + 1]) {
-  port = Number(process.argv[portIndex + 1]);
+  port = parsePort(process.argv[portIndex + 1]);
 }
 
 async function waitForUi(origin: string): Promise<boolean> {
   const deadline = Date.now() + UI_WAIT_MS;
+  let lastError: unknown;
   while (Date.now() < deadline) {
     try {
       await fetch(origin, { signal: AbortSignal.timeout(500) });
       return true;
-    } catch {
+    } catch (err) {
+      lastError = err;
       await new Promise((resolve) => setTimeout(resolve, UI_POLL_MS));
     }
+  }
+  if (lastError instanceof Error) {
+    console.debug(`ui check failed: ${lastError.message}`);
   }
   return false;
 }

@@ -2,6 +2,7 @@ import { isCategory, readFileText, writeFileText, safePath } from "../fs/scoped.
 import { backupFile } from "../fs/backups.js";
 import type { Scope } from "schema";
 import { isInvalidProjectDir } from "./scopeQuery.js";
+import { PathEscapeError } from "../errors.js";
 
 export async function getFileResponse(
   categoryParam: string,
@@ -33,8 +34,7 @@ export async function getFileResponse(
     if (isInvalidProjectDir(error)) {
       return { status: 400 as const, body: { error: error.message } };
     }
-    const message = error instanceof Error ? error.message : "unable to read file";
-    if (message.includes("path escapes")) {
+    if (error instanceof PathEscapeError) {
       return { status: 403 as const, body: { error: "forbidden path" } };
     }
     return { status: 404 as const, body: { error: "file not found" } };
@@ -83,10 +83,10 @@ export async function postFileResponse(
     if (isInvalidProjectDir(error)) {
       return { status: 400 as const, body: { error: error.message } };
     }
-    const message = error instanceof Error ? error.message : "unable to write file";
-    if (message.includes("path escapes")) {
+    if (error instanceof PathEscapeError) {
       return { status: 403 as const, body: { error: "forbidden path" } };
     }
+    const message = error instanceof Error ? error.message : "unable to write file";
     return { status: 500 as const, body: { error: message } };
   }
 }

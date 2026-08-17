@@ -9,6 +9,7 @@ import { readFile } from "node:fs/promises";
 import { readFileText, settingsFilePath } from "../fs/scoped.js";
 import { writeSettings } from "../fs/writeSettings.js";
 import { isInvalidProjectDir } from "./scopeQuery.js";
+import { isFileNotFound, PathEscapeError } from "../errors.js";
 
 export async function getSettingsResponse(layer: SettingsLayer = "user", projectDir?: string) {
   try {
@@ -34,14 +35,13 @@ export async function getSettingsResponse(layer: SettingsLayer = "user", project
     if (isInvalidProjectDir(error)) {
       return { status: 400 as const, body: { error: error.message } };
     }
-    const message = error instanceof Error ? error.message : "unable to read settings";
-    if (message.includes("ENOENT") || message.includes("file not found")) {
+    if (isFileNotFound(error)) {
       return {
         status: 200 as const,
         body: { settings: DEFAULT_SETTINGS },
       };
     }
-    if (message.includes("path escapes")) {
+    if (error instanceof PathEscapeError) {
       return { status: 403 as const, body: { error: "forbidden path" } };
     }
     if (error instanceof SyntaxError) {
