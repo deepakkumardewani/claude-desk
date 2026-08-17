@@ -53,27 +53,27 @@ Claude Desk gives you a local browser UI for the same config: search it, read it
 
 **Home** — search user or project config, jump into categories, and reopen recently viewed files. Scope switcher is in the header.
 
-![Home](./docs/images/home.png)
+![Home](./docs/images/home-v2.png)
 
 **Settings** — schema-driven form for `settings.json` with searchable grouped sections.
 
-![Settings](./docs/images/settings.png)
+![Settings](./docs/images/settings-v2.png)
 
 **Workspace** — context inspector with per-category token breakdown.
 
-![Workspace](./docs/images/workspace.png)
+![Workspace](./docs/images/workspace-v2.png)
 
 **Skills** — file-tree sidebar plus markdown preview/editor for skills, plans, commands, and agents.
 
-![Skills](./docs/images/skills.png)
+![Skills](./docs/images/skills-v2.png)
 
 **Usage** — analytics from local transcripts: overview, timeline, models, projects, sessions, spend windows, and prompts.
 
-![Usage](./docs/images/usage.png)
+![Usage](./docs/images/usage-v2.png)
 
 **MCP servers** — installed servers for the active scope, plus a catalog to add stdio or HTTP servers.
 
-![MCP](./docs/images/mcp.png)
+![MCP](./docs/images/mcp-v2.png)
 
 ## Quick start
 
