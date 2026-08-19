@@ -12,7 +12,7 @@ Browse and edit your [Claude Code](https://docs.claude.com/en/docs/claude-code) 
 ![Vitest](https://img.shields.io/badge/-Vitest-252529?style=for-the-badge&logo=vitest&logoColor=FCC72B)
 
 ![NPM](https://img.shields.io/badge/NPM-%23CB3837.svg?style=for-the-badge&logo=npm&logoColor=white)
-[![CI](https://img.shields.io/github/actions/workflow/status/deepakkumardewani/cc-studio/ci.yml?branch=main&style=for-the-badge&label=build)](https://github.com/deepakkumardewani/cc-studio/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/deepakkumardewani/claude-desk/ci.yml?branch=main&style=for-the-badge&label=build)](https://github.com/deepakkumardewani/claude-desk/actions/workflows/ci.yml)
 [![GitHub license](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](./LICENSE)
 
 ```bash

@@ -1,6 +1,6 @@
 {
   "name": "claude-desk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Browse and edit Claude Code config (~/.claude) in the browser",
   "keywords": [
     "claude",
@@ -13,15 +13,15 @@
     "typescript",
     "workspace"
   ],
-  "homepage": "https://github.com/deepakkumardewani/cc-studio#readme",
+  "homepage": "https://github.com/deepakkumardewani/claude-desk#readme",
   "bugs": {
-    "url": "https://github.com/deepakkumardewani/cc-studio/issues"
+    "url": "https://github.com/deepakkumardewani/claude-desk/issues"
   },
   "license": "MIT",
   "author": "Deepak Dewani",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepakkumardewani/cc-studio.git"
+    "url": "git+https://github.com/deepakkumardewani/claude-desk.git"
   },
   "bin": {
     "claude-desk": "dist/bin.mjs"
