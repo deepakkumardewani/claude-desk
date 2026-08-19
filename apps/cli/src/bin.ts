@@ -12,7 +12,7 @@ const mainCommand = defineCommand({
   args: {
     port: {
       type: "string",
-      description: "Port to listen on (default: random)",
+      description: "Port to listen on (default: 0 = random)",
       default: "0",
       alias: "p",
     },
