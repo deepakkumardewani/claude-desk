@@ -10,6 +10,8 @@ import { requireAbsoluteProjectDir, userClaudeRoot } from "./scoped.js";
 
 const execFileAsync = promisify(execFile);
 
+type McpServerEntry = NonNullable<McpConfig["mcpServers"]>[string];
+
 export type McpOrigin = "file" | "plugin";
 
 export interface MergedMcpServer {
@@ -30,6 +32,8 @@ interface RawClaudeJsonServer {
   args?: string[];
   env?: Record<string, string>;
   url?: string;
+  headers?: Record<string, string>;
+  timeout?: number;
 }
 
 interface ClaudeJson {
@@ -180,7 +184,7 @@ export async function getMergedMcpServers(
   return Array.from(merged.values());
 }
 
-function getMcpPath(scope: "user" | "project", projectDir?: string): string {
+export function getMcpPath(scope: "user" | "project", projectDir?: string): string {
   if (scope === "user") {
     return join(userClaudeRoot(), ".mcp.json");
   }
@@ -194,22 +198,17 @@ function asJsonObject(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function mcpServerFromRaw(
-  name: string,
-  raw: RawClaudeJsonServer,
-): NonNullable<McpConfig["mcpServers"]>[string] {
-  if (raw.type === "sse") {
+function mcpServerFromRaw(name: string, raw: RawClaudeJsonServer): McpServerEntry {
+  if (raw.type === "sse" || raw.type === "http" || raw.url) {
     return {
       name,
       disabled: false,
-      transport: { type: "sse", url: raw.url ?? "http://localhost" },
-    };
-  }
-  if (raw.type === "http" || raw.url) {
-    return {
-      name,
-      disabled: false,
-      transport: { type: "http", url: raw.url ?? "http://localhost" },
+      transport: {
+        type: raw.type === "sse" ? "sse" : "http",
+        url: raw.url ?? "http://localhost",
+        ...(raw.headers ? { headers: raw.headers } : {}),
+        ...(raw.timeout !== undefined ? { timeout: raw.timeout } : {}),
+      },
     };
   }
   return {
@@ -222,6 +221,49 @@ function mcpServerFromRaw(
       ...(raw.env ? { env: raw.env } : {}),
     },
   };
+}
+
+function invalidMcpEntry(name: string, reason: string): Error {
+  return new Error(`Invalid MCP config: server "${name}" ${reason}`);
+}
+
+/**
+ * Accepts both the legacy app shape ({name, transport}) and the shape Claude Code
+ * actually writes ({type, command, args, env} / {type, url, headers}).
+ */
+export function normalizeMcpEntry(name: string, raw: unknown): McpServerEntry {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw invalidMcpEntry(name, "must be an object");
+  }
+  const entry = raw as Record<string, unknown>;
+  const candidate =
+    "transport" in entry
+      ? { name, ...entry }
+      : hasLaunchTarget(entry)
+        ? mcpServerFromRaw(name, entry as RawClaudeJsonServer)
+        : null;
+  if (!candidate) {
+    throw invalidMcpEntry(name, "needs a command or url");
+  }
+  const result = mcpServerSchema.safeParse(candidate);
+  if (!result.success) {
+    throw new Error(`Invalid MCP config: ${result.error.message}`);
+  }
+  return result.data;
+}
+
+// Without a command or url mcpServerFromRaw would silently invent a "unknown" stdio server.
+function hasLaunchTarget(entry: Record<string, unknown>): boolean {
+  return typeof entry.command === "string" || typeof entry.url === "string";
+}
+
+function normalizeMcpServers(parsed: unknown): NonNullable<McpConfig["mcpServers"]> {
+  const record = asJsonObject(asJsonObject(parsed).mcpServers);
+  const servers: NonNullable<McpConfig["mcpServers"]> = {};
+  for (const [name, raw] of Object.entries(record)) {
+    servers[name] = normalizeMcpEntry(name, raw);
+  }
+  return servers;
 }
 
 async function backupIfExists(filePath: string): Promise<void> {
@@ -241,7 +283,7 @@ async function readJsonObject(filePath: string): Promise<Record<string, unknown>
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed as Record<string, unknown>;
     }
-    throw new Error("Invalid ~/.claude.json: expected an object");
+    throw new Error(`Invalid JSON file ${filePath}: expected an object`);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return null;
@@ -295,14 +337,7 @@ export async function readMcpConfig(
   try {
     await stat(mcpPath);
     const content = await readFile(mcpPath, "utf-8");
-    const parsed = JSON.parse(content);
-    const result = safeParseMcpConfig(parsed);
-
-    if (!result.success) {
-      throw new Error(`Invalid MCP config: ${result.error.message}`);
-    }
-
-    return result.data;
+    return { mcpServers: normalizeMcpServers(JSON.parse(content)) };
   } catch (error) {
     if (error instanceof Error && error.message.includes("ENOENT")) {
       return { mcpServers: {} };
@@ -327,9 +362,15 @@ export async function writeMcpConfig(
   }
 
   const mcpPath = getMcpPath(scope, projectDir);
+  // Keep unknown top-level keys so we never drop data Claude Code or the user put there.
+  const existing = (await readJsonObject(mcpPath)) ?? {};
+  const mcpServers: Record<string, unknown> = {};
+  for (const [name, server] of Object.entries(result.data.mcpServers ?? {})) {
+    mcpServers[name] = toClaudeAddJsonPayload(server);
+  }
   await backupIfExists(mcpPath);
   await mkdir(dirname(mcpPath), { recursive: true });
-  await writeFile(mcpPath, JSON.stringify(result.data, null, 2), "utf-8");
+  await writeFile(mcpPath, JSON.stringify({ ...existing, mcpServers }, null, 2), "utf-8");
 }
 
 export async function addMcpServer(

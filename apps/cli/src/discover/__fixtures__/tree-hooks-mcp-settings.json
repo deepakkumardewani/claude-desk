@@ -1,0 +1,53 @@
+{
+  "_note": "Hand-built fixture: settings.json with 2 hook events + 3 other keys, .mcp.json with 2 servers.",
+  "tree": [
+    {
+      "path": ".claude/settings.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.claude_settings.json",
+      "size": 100
+    },
+    {
+      "path": ".claude/hooks/guard.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.claude_hooks_guard.sh",
+      "size": 40
+    },
+    {
+      "path": ".claude/hooks/format.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.claude_hooks_format.sh",
+      "size": 40
+    },
+    {
+      "path": ".mcp.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.mcp.json",
+      "size": 100
+    },
+    {
+      "path": "tools/sub/.mcp.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-tools_sub_.mcp.json",
+      "size": 100
+    },
+    {
+      "path": "tools/sub/.claude/settings.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-tools_sub_.claude_settings.json",
+      "size": 100
+    }
+  ],
+  "files": {
+    ".claude/settings.json": "{\"permissions\": {\"allow\": [\"Bash(ls)\"]}, \"env\": {\"FOO\": \"bar\"}, \"model\": \"opus\", \"hooks\": {\"PreToolUse\": [{\"matcher\": \"Bash\", \"hooks\": [{\"type\": \"command\", \"command\": \"\\\"$CLAUDE_PROJECT_DIR\\\"/.claude/hooks/guard.sh\"}]}], \"PostToolUse\": [{\"matcher\": \"Edit|Write\", \"hooks\": [{\"type\": \"command\", \"command\": \".claude/hooks/format.sh --fix\"}, {\"type\": \"command\", \"command\": \"$CLAUDE_PROJECT_DIR/.claude/hooks/missing.sh\"}]}]}}",
+    ".mcp.json": "{\"mcpServers\": {\"github\": {\"command\": \"npx\", \"args\": [\"-y\", \"gh-mcp\"], \"env\": {\"TOKEN\": \"${GH_TOKEN}\"}}, \"docs\": {\"type\": \"http\", \"url\": \"https://docs.example.com/mcp\"}}}",
+    "tools/sub/.mcp.json": "{ not json",
+    "tools/sub/.claude/settings.json": "{\"hooks\": {\"Stop\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"$CLAUDE_PROJECT_DIR/.claude/hooks/sub.sh\"}]}]}}"
+  }
+}

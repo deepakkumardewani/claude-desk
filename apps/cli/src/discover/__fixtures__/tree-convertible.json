@@ -1,0 +1,79 @@
+{
+  "_note": "Hand-built fixture: Cursor/Copilot convertible files.",
+  "tree": [
+    {
+      "path": ".cursor/rules/style.mdc",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.cursor_rules_style.mdc",
+      "size": 60
+    },
+    {
+      "path": ".cursorrules",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.cursorrules",
+      "size": 18
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.github_copilot-instructions.md",
+      "size": 18
+    },
+    {
+      "path": ".github/instructions/api.instructions.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.github_instructions_api.instructions.md",
+      "size": 39
+    },
+    {
+      "path": ".github/prompts/review.prompt.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.github_prompts_review.prompt.md",
+      "size": 54
+    },
+    {
+      "path": ".github/chatmodes/planner.chatmode.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.github_chatmodes_planner.chatmode.md",
+      "size": 57
+    },
+    {
+      "path": ".github/agents/helper.agent.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.github_agents_helper.agent.md",
+      "size": 33
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-README.md",
+      "size": 4
+    },
+    {
+      "path": "node_modules/x/.cursorrules",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-node_modules_x_.cursorrules",
+      "size": 7
+    }
+  ],
+  "files": {
+    ".cursor/rules/style.mdc": "---\ndescription: Code style\nglobs: src/**/*.ts\n---\nUse tabs.",
+    ".cursorrules": "Always be concise.",
+    ".github/copilot-instructions.md": "Prefer TypeScript.",
+    ".github/instructions/api.instructions.md": "---\napplyTo: api/**\n---\nValidate input.",
+    ".github/prompts/review.prompt.md": "---\ndescription: Review code\n---\nReview ${input:file}.",
+    ".github/chatmodes/planner.chatmode.md": "---\ndescription: Plan\ntools: ['codebase']\n---\nPlan first.",
+    ".github/agents/helper.agent.md": "---\ndescription: Helper\n---\nHelp.",
+    "README.md": "# hi",
+    "node_modules/x/.cursorrules": "ignored"
+  }
+}

@@ -37,7 +37,7 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "vp exec tsx watch src/main.ts --port 3002",
+    "dev": "CC_STUDIO_UI_ORIGIN=http://127.0.0.1:${CC_STUDIO_WEB_PORT:-47821} vp exec tsx watch src/main.ts --port ${CC_STUDIO_API_PORT:-47820}",
     "build": "vp pack src/bin.ts && node ./scripts/copy-web-dist.mjs",
     "prepublishOnly": "bun run build",
     "test": "vp test",

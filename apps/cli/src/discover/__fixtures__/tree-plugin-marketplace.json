@@ -1,0 +1,101 @@
+{
+  "_note": "Hand-built fixture: marketplace with 2 plugins; plus a standalone plugin.json under standalone/ and one oversized plugin dir.",
+  "tree": [
+    {
+      "path": ".claude-plugin/marketplace.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.claude-plugin_marketplace.json",
+      "size": 100
+    },
+    {
+      "path": "plugins/alpha/skills/one/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-plugins_alpha_skills_one_SKILL.md",
+      "size": 100
+    },
+    {
+      "path": "plugins/alpha/commands/go.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-plugins_alpha_commands_go.md",
+      "size": 100
+    },
+    {
+      "path": "plugins/beta/agents/helper.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-plugins_beta_agents_helper.md",
+      "size": 100
+    },
+    {
+      "path": "loose/skills/free/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-loose_skills_free_SKILL.md",
+      "size": 100
+    },
+    {
+      "path": "standalone/.claude-plugin/plugin.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-standalone_.claude-plugin_plugin.json",
+      "size": 100
+    },
+    {
+      "path": "standalone/skills/solo/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-standalone_skills_solo_SKILL.md",
+      "size": 100
+    },
+    {
+      "path": "standalone/commands/run.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-standalone_commands_run.md",
+      "size": 100
+    },
+    {
+      "path": "big/skills/huge/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-big_skills_huge_SKILL.md",
+      "size": 1000001
+    },
+    {
+      "path": "big/skills/huge/data.bin",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-big_skills_huge_data.bin",
+      "size": 6000000
+    },
+    {
+      "path": "big/skills/huge/more.bin",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-big_skills_huge_more.bin",
+      "size": 5000000
+    },
+    {
+      "path": "big/skills/ok/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-big_skills_ok_SKILL.md",
+      "size": 100
+    }
+  ],
+  "files": {
+    ".claude-plugin/marketplace.json": "{\"name\": \"demo-market\", \"plugins\": [{\"name\": \"alpha\", \"source\": \"./plugins/alpha\", \"description\": \"Alpha plugin\"}, {\"name\": \"beta\", \"source\": \"./plugins/beta\"}]}",
+    "plugins/alpha/skills/one/SKILL.md": "---\nname: one\n---",
+    "plugins/alpha/commands/go.md": "go",
+    "plugins/beta/agents/helper.md": "---\nname: helper\n---",
+    "loose/skills/free/SKILL.md": "---\nname: free\n---",
+    "standalone/.claude-plugin/plugin.json": "{\"name\": \"standalone-plug\", \"description\": \"Solo\"}",
+    "standalone/skills/solo/SKILL.md": "---\nname: solo\n---",
+    "standalone/commands/run.md": "run",
+    "big/skills/huge/SKILL.md": "---\nname: huge\n---",
+    "big/skills/ok/SKILL.md": "---\nname: ok\n---"
+  }
+}

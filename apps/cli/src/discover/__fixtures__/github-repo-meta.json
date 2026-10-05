@@ -1,0 +1,10 @@
+{
+  "_capturedAt": "2026-10-04",
+  "_request": "GET https://api.github.com/repos/anthropics/skills + /commits/main (sha only)",
+  "full_name": "anthropics/skills",
+  "description": "Public repository for Agent Skills",
+  "stargazers_count": 179619,
+  "default_branch": "main",
+  "html_url": "https://github.com/anthropics/skills",
+  "commitSha": "8a1541c4a3ffa5a20a5a91de0dcf3f0bab1d1ef4"
+}

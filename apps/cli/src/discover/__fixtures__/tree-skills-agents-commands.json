@@ -1,0 +1,143 @@
+{
+  "_note": "Hand-built fixture: tree entries + file contents for detectItems tests.",
+  "tree": [
+    {
+      "path": "skills/pdf/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-skills_pdf_SKILL.md",
+      "size": 100
+    },
+    {
+      "path": "skills/pdf/scripts/extract.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-skills_pdf_scripts_extract.py",
+      "size": 250
+    },
+    {
+      "path": "skills/nested/deep/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-skills_nested_deep_SKILL.md",
+      "size": 100
+    },
+    {
+      "path": "skills/linked/SKILL.md",
+      "mode": "120000",
+      "type": "blob",
+      "sha": "sha-skills_linked_SKILL.md",
+      "size": 10
+    },
+    {
+      "path": ".claude/agents/reviewer.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.claude_agents_reviewer.md",
+      "size": 100
+    },
+    {
+      "path": ".claude/agents/notes.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.claude_agents_notes.md",
+      "size": 100
+    },
+    {
+      "path": ".claude/commands/deploy.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.claude_commands_deploy.md",
+      "size": 100
+    },
+    {
+      "path": ".claude/commands/frontend/lint.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.claude_commands_frontend_lint.md",
+      "size": 100
+    },
+    {
+      "path": ".claude/commands/alias.md",
+      "mode": "120000",
+      "type": "blob",
+      "sha": "sha-.claude_commands_alias.md",
+      "size": 10
+    },
+    {
+      "path": "agents/external",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "sha-submodule"
+    },
+    {
+      "path": ".claude",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "sha-dir"
+    },
+    {
+      "path": "node_modules/pkg/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-node_modules_pkg_SKILL.md",
+      "size": 100
+    },
+    {
+      "path": "vendor/lib/commands/x.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-vendor_lib_commands_x.md",
+      "size": 100
+    },
+    {
+      "path": "dist/agents/built.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-dist_agents_built.md",
+      "size": 100
+    },
+    {
+      "path": "build/skills/q/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-build_skills_q_SKILL.md",
+      "size": 100
+    },
+    {
+      "path": ".git/commands/y.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.git_commands_y.md",
+      "size": 100
+    },
+    {
+      "path": ".github/agents/triage.agent.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-.github_agents_triage.agent.md",
+      "size": 100
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-README.md",
+      "size": 100
+    }
+  ],
+  "files": {
+    "skills/pdf/SKILL.md": "---\nname: pdf-tools\ndescription: Work with PDFs\n---\n# PDF",
+    "skills/nested/deep/SKILL.md": "---\ndescription: >-\n  Folded\n  description\n---\nbody",
+    ".claude/agents/reviewer.md": "---\nname: code-reviewer\ndescription: \"Reviews code\"\n---\nbody",
+    ".claude/agents/notes.md": "# just notes, no frontmatter",
+    ".claude/commands/deploy.md": "---\ndescription: Deploy it\n---\nrun",
+    ".claude/commands/frontend/lint.md": "lint everything",
+    "node_modules/pkg/SKILL.md": "x",
+    "vendor/lib/commands/x.md": "x",
+    "dist/agents/built.md": "---\nname: b\n---",
+    "build/skills/q/SKILL.md": "x",
+    ".git/commands/y.md": "x",
+    ".github/agents/triage.agent.md": "---\nname: t\n---"
+  }
+}

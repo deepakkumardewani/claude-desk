@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import open from "open";
-import { createToken } from "./auth.js";
+import { resolveDevSession } from "./devSession.js";
 import { createApp } from "./server.js";
 import { parsePort } from "./port.js";
 
@@ -8,19 +8,20 @@ const DEFAULT_UI_ORIGIN = "http://127.0.0.1:5173";
 const UI_WAIT_MS = 20_000;
 const UI_POLL_MS = 250;
 
-const token = process.env.CC_STUDIO_TOKEN || createToken();
+let port = parsePort(process.env.PORT ?? 3000);
+const portIndex = process.argv.indexOf("--port");
+if (portIndex !== -1 && process.argv[portIndex + 1]) {
+  port = parsePort(process.argv[portIndex + 1]);
+}
+
+const devSession = resolveDevSession({ port, watcherPid: process.ppid });
+const token = process.env.CC_STUDIO_TOKEN || devSession.token;
 const app = createApp({ token });
 
 const uiOrigin = process.env.CC_STUDIO_UI_ORIGIN ?? DEFAULT_UI_ORIGIN;
 const launchUrl = `${uiOrigin}/#token=${token}`;
 
 app.get("/", (c) => c.redirect(launchUrl));
-
-let port = parsePort(process.env.PORT ?? 3000);
-const portIndex = process.argv.indexOf("--port");
-if (portIndex !== -1 && process.argv[portIndex + 1]) {
-  port = parsePort(process.argv[portIndex + 1]);
-}
 
 async function waitForUi(origin: string): Promise<boolean> {
   const deadline = Date.now() + UI_WAIT_MS;
@@ -41,7 +42,7 @@ async function waitForUi(origin: string): Promise<boolean> {
 }
 
 async function openUi(url: string, origin: string): Promise<void> {
-  if (process.env.CC_STUDIO_NO_OPEN === "1") {
+  if (process.env.CC_STUDIO_NO_OPEN === "1" || !devSession.isFirstBoot) {
     return;
   }
   const ready = await waitForUi(origin);

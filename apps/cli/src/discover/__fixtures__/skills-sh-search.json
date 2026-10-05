@@ -1,0 +1,723 @@
+{
+  "_capturedAt": "2026-10-04",
+  "_request": "GET https://skills.sh/api/search?q=react",
+  "query": "react",
+  "searchType": "fuzzy",
+  "searchVersion": "algolia",
+  "skills": [
+    {
+      "id": "vercel-labs/agent-skills/vercel-react-best-practices",
+      "source": "vercel-labs/agent-skills",
+      "skillId": "vercel-react-best-practices",
+      "name": "vercel-react-best-practices",
+      "installs": 768842
+    },
+    {
+      "id": "vercel-labs/agent-skills/vercel-react-native-skills",
+      "source": "vercel-labs/agent-skills",
+      "skillId": "vercel-react-native-skills",
+      "name": "vercel-react-native-skills",
+      "installs": 231077
+    },
+    {
+      "id": "vercel-labs/agent-skills/vercel-react-view-transitions",
+      "source": "vercel-labs/agent-skills",
+      "skillId": "vercel-react-view-transitions",
+      "name": "vercel-react-view-transitions",
+      "installs": 142177
+    },
+    {
+      "id": "vercel-labs/json-render/react",
+      "source": "vercel-labs/json-render",
+      "skillId": "react",
+      "name": "react",
+      "installs": 13476
+    },
+    {
+      "id": "google-labs-code/stitch-skills/reactcomponents",
+      "source": "google-labs-code/stitch-skills",
+      "skillId": "reactcomponents",
+      "name": "react:components",
+      "installs": 50736
+    },
+    {
+      "id": "callstackincubator/agent-skills/react-native-best-practices",
+      "source": "callstackincubator/agent-skills",
+      "skillId": "react-native-best-practices",
+      "name": "react-native-best-practices",
+      "installs": 27892
+    },
+    {
+      "id": "clerk/skills/clerk-react-patterns",
+      "source": "clerk/skills",
+      "skillId": "clerk-react-patterns",
+      "name": "clerk-react-patterns",
+      "installs": 18413
+    },
+    {
+      "id": "clerk/skills/clerk-react-router-patterns",
+      "source": "clerk/skills",
+      "skillId": "clerk-react-router-patterns",
+      "name": "clerk-react-router-patterns",
+      "installs": 14684
+    },
+    {
+      "id": "resend/react-email/react-email",
+      "source": "resend/react-email",
+      "skillId": "react-email",
+      "name": "react-email",
+      "installs": 9299
+    },
+    {
+      "id": "greensock/gsap-skills/gsap-react",
+      "source": "greensock/gsap-skills",
+      "skillId": "gsap-react",
+      "name": "gsap-react",
+      "installs": 55780
+    },
+    {
+      "id": "rivet-dev/skills/rivetkit-client-react",
+      "source": "rivet-dev/skills",
+      "skillId": "rivetkit-client-react",
+      "name": "rivetkit-client-react",
+      "installs": 7546
+    },
+    {
+      "id": "millionco/react-doctor/react-doctor",
+      "source": "millionco/react-doctor",
+      "skillId": "react-doctor",
+      "name": "react-doctor",
+      "installs": 15786
+    },
+    {
+      "id": "software-mansion/argent/argent-react-native-optimization",
+      "source": "software-mansion/argent",
+      "skillId": "argent-react-native-optimization",
+      "name": "argent-react-native-optimization",
+      "installs": 21464
+    },
+    {
+      "id": "software-mansion/argent/argent-react-native-app-workflow",
+      "source": "software-mansion/argent",
+      "skillId": "argent-react-native-app-workflow",
+      "name": "argent-react-native-app-workflow",
+      "installs": 21400
+    },
+    {
+      "id": "software-mansion/argent/argent-react-native-profiler",
+      "source": "software-mansion/argent",
+      "skillId": "argent-react-native-profiler",
+      "name": "argent-react-native-profiler",
+      "installs": 21327
+    },
+    {
+      "id": "wshobson/agents/react-native-design",
+      "source": "wshobson/agents",
+      "skillId": "react-native-design",
+      "name": "react-native-design",
+      "installs": 14982
+    },
+    {
+      "id": "wshobson/agents/react-state-management",
+      "source": "wshobson/agents",
+      "skillId": "react-state-management",
+      "name": "react-state-management",
+      "installs": 14621
+    },
+    {
+      "id": "wshobson/agents/react-native-architecture",
+      "source": "wshobson/agents",
+      "skillId": "react-native-architecture",
+      "name": "react-native-architecture",
+      "installs": 14603
+    },
+    {
+      "id": "wshobson/agents/react-modernization",
+      "source": "wshobson/agents",
+      "skillId": "react-modernization",
+      "name": "react-modernization",
+      "installs": 12158
+    },
+    {
+      "id": "lobehub/lobehub/react",
+      "source": "lobehub/lobehub",
+      "skillId": "react",
+      "name": "react",
+      "installs": 5644
+    },
+    {
+      "id": "dotneet/claude-code-marketplace/typescript-react-reviewer",
+      "source": "dotneet/claude-code-marketplace",
+      "skillId": "typescript-react-reviewer",
+      "name": "typescript-react-reviewer",
+      "installs": 8844
+    },
+    {
+      "id": "emblemcompany/agent-skills/emblem-ai-react",
+      "source": "emblemcompany/agent-skills",
+      "skillId": "emblem-ai-react",
+      "name": "emblem-ai-react",
+      "installs": 8771
+    },
+    {
+      "id": "affaan-m/ecc/react-performance",
+      "source": "affaan-m/ecc",
+      "skillId": "react-performance",
+      "name": "react-performance",
+      "installs": 5337
+    },
+    {
+      "id": "affaan-m/ecc/react-patterns",
+      "source": "affaan-m/ecc",
+      "skillId": "react-patterns",
+      "name": "react-patterns",
+      "installs": 5280
+    },
+    {
+      "id": "affaan-m/ecc/react-testing",
+      "source": "affaan-m/ecc",
+      "skillId": "react-testing",
+      "name": "react-testing",
+      "installs": 5183
+    },
+    {
+      "id": "jeffallan/claude-skills/react-expert",
+      "source": "jeffallan/claude-skills",
+      "skillId": "react-expert",
+      "name": "react-expert",
+      "installs": 5074
+    },
+    {
+      "id": "giuseppe-trisciuoglio/developer-kit/react-code-review",
+      "source": "giuseppe-trisciuoglio/developer-kit",
+      "skillId": "react-code-review",
+      "name": "react-code-review",
+      "installs": 3971
+    },
+    {
+      "id": "alleneubank/claude-code/react-best-practices",
+      "source": "alleneubank/claude-code",
+      "skillId": "react-best-practices",
+      "name": "react-best-practices",
+      "installs": 3156
+    },
+    {
+      "id": "vercel-labs/agent-skills/vercel-composition-patterns",
+      "source": "vercel-labs/agent-skills",
+      "skillId": "vercel-composition-patterns",
+      "name": "vercel-composition-patterns",
+      "installs": 372719
+    },
+    {
+      "id": "vercel/ai/ai-sdk",
+      "source": "vercel/ai",
+      "skillId": "ai-sdk",
+      "name": "ai-sdk",
+      "installs": 64011
+    },
+    {
+      "id": "supabase/agent-skills/supabase",
+      "source": "supabase/agent-skills",
+      "skillId": "supabase",
+      "name": "supabase",
+      "installs": 307380
+    },
+    {
+      "id": "mattpocock/skills/tdd",
+      "source": "mattpocock/skills",
+      "skillId": "tdd",
+      "name": "tdd",
+      "installs": 1013854
+    },
+    {
+      "id": "open.feishu.cn/lark-event",
+      "source": "open.feishu.cn",
+      "skillId": "lark-event",
+      "name": "lark-event",
+      "installs": 742013
+    },
+    {
+      "id": "heygen-com/hyperframes/hyperframes-creative",
+      "source": "heygen-com/hyperframes",
+      "skillId": "hyperframes-creative",
+      "name": "hyperframes-creative",
+      "installs": 614563
+    },
+    {
+      "id": "designed-by-ai/skills/design-mobile-apps",
+      "source": "designed-by-ai/skills",
+      "skillId": "design-mobile-apps",
+      "name": "design-mobile-apps",
+      "installs": 598763
+    },
+    {
+      "id": "anthropics/skills/web-artifacts-builder",
+      "source": "anthropics/skills",
+      "skillId": "web-artifacts-builder",
+      "name": "web-artifacts-builder",
+      "installs": 106160
+    },
+    {
+      "id": "larksuite/cli/lark-event",
+      "source": "larksuite/cli",
+      "skillId": "lark-event",
+      "name": "lark-event",
+      "installs": 452701
+    },
+    {
+      "id": "heygen-com/hyperframes/remotion-to-hyperframes",
+      "source": "heygen-com/hyperframes",
+      "skillId": "remotion-to-hyperframes",
+      "name": "remotion-to-hyperframes",
+      "installs": 371003
+    },
+    {
+      "id": "lllllllama/rigorpilot-skills/analyze-project",
+      "source": "lllllllama/rigorpilot-skills",
+      "skillId": "analyze-project",
+      "name": "analyze-project",
+      "installs": 311175
+    },
+    {
+      "id": "lllllllama/rigorpilot-skills/safe-debug",
+      "source": "lllllllama/rigorpilot-skills",
+      "skillId": "safe-debug",
+      "name": "safe-debug",
+      "installs": 310724
+    },
+    {
+      "id": "heygen-com/hyperframes/pr-to-video",
+      "source": "heygen-com/hyperframes",
+      "skillId": "pr-to-video",
+      "name": "pr-to-video",
+      "installs": 302572
+    },
+    {
+      "id": "mattpocock/skills/setup-ts-deep-modules",
+      "source": "mattpocock/skills",
+      "skillId": "setup-ts-deep-modules",
+      "name": "setup-ts-deep-modules",
+      "installs": 297042
+    },
+    {
+      "id": "expo/skills/expo-tailwind-setup",
+      "source": "expo/skills",
+      "skillId": "expo-tailwind-setup",
+      "name": "expo-tailwind-setup",
+      "installs": 54532
+    },
+    {
+      "id": "expo/skills/native-data-fetching",
+      "source": "expo/skills",
+      "skillId": "native-data-fetching",
+      "name": "native-data-fetching",
+      "installs": 47344
+    },
+    {
+      "id": "mattpocock/skills/request-refactor-plan",
+      "source": "mattpocock/skills",
+      "skillId": "request-refactor-plan",
+      "name": "request-refactor-plan",
+      "installs": 210583
+    },
+    {
+      "id": "uizze.sh/ios-design",
+      "source": "uizze.sh",
+      "skillId": "ios-design",
+      "name": "ios-design",
+      "installs": 204835
+    },
+    {
+      "id": "flutter/agent-plugins/flutter-apply-architecture-best-practices",
+      "source": "flutter/agent-plugins",
+      "skillId": "flutter-apply-architecture-best-practices",
+      "name": "flutter-apply-architecture-best-practices",
+      "installs": 39026
+    },
+    {
+      "id": "googleworkspace/cli/gws-events-renew",
+      "source": "googleworkspace/cli",
+      "skillId": "gws-events-renew",
+      "name": "gws-events-renew",
+      "installs": 29722
+    },
+    {
+      "id": "expo/skills/expo-ui",
+      "source": "expo/skills",
+      "skillId": "expo-ui",
+      "name": "expo-ui",
+      "installs": 26082
+    },
+    {
+      "id": "expo/skills/expo-brownfield",
+      "source": "expo/skills",
+      "skillId": "expo-brownfield",
+      "name": "expo-brownfield",
+      "installs": 23818
+    },
+    {
+      "id": "coreyhaines31/marketingskills/cold-email",
+      "source": "coreyhaines31/marketingskills",
+      "skillId": "cold-email",
+      "name": "cold-email",
+      "installs": 116773
+    },
+    {
+      "id": "firecrawl/skills/firecrawl-research-index",
+      "source": "firecrawl/skills",
+      "skillId": "firecrawl-research-index",
+      "name": "firecrawl-research-index",
+      "installs": 22786
+    },
+    {
+      "id": "github/awesome-copilot/refactor",
+      "source": "github/awesome-copilot",
+      "skillId": "refactor",
+      "name": "refactor",
+      "installs": 22214
+    },
+    {
+      "id": "antibrow/anti-detect-browser-skills/anti-detect-browser",
+      "source": "antibrow/anti-detect-browser-skills",
+      "skillId": "anti-detect-browser",
+      "name": "anti-detect-browser",
+      "installs": 110275
+    },
+    {
+      "id": "expo/skills/expo-data-fetching",
+      "source": "expo/skills",
+      "skillId": "expo-data-fetching",
+      "name": "expo-data-fetching",
+      "installs": 21337
+    },
+    {
+      "id": "get-convex/agent-skills/convex",
+      "source": "get-convex/agent-skills",
+      "skillId": "convex",
+      "name": "convex",
+      "installs": 100067
+    },
+    {
+      "id": "emilkowalski/skills/ask-sonner",
+      "source": "emilkowalski/skills",
+      "skillId": "ask-sonner",
+      "name": "ask-sonner",
+      "installs": 92209
+    },
+    {
+      "id": "expo/skills/eas-app-stores",
+      "source": "expo/skills",
+      "skillId": "eas-app-stores",
+      "name": "eas-app-stores",
+      "installs": 18087
+    },
+    {
+      "id": "juliusbrussee/caveman/safe-refactor",
+      "source": "juliusbrussee/caveman",
+      "skillId": "safe-refactor",
+      "name": "safe-refactor",
+      "installs": 82634
+    },
+    {
+      "id": "solana-foundation/solana-dev-skill/solana-dev",
+      "source": "solana-foundation/solana-dev-skill",
+      "skillId": "solana-dev",
+      "name": "solana-dev",
+      "installs": 80976
+    },
+    {
+      "id": "emilkowalski/skills/animate-expo",
+      "source": "emilkowalski/skills",
+      "skillId": "animate-expo",
+      "name": "animate-expo",
+      "installs": 80376
+    },
+    {
+      "id": "expo/skills/expo-web-to-native",
+      "source": "expo/skills",
+      "skillId": "expo-web-to-native",
+      "name": "expo-web-to-native",
+      "installs": 15497
+    },
+    {
+      "id": "expo/skills/eas-observe",
+      "source": "expo/skills",
+      "skillId": "eas-observe",
+      "name": "eas-observe",
+      "installs": 15087
+    },
+    {
+      "id": "clerk/skills/clerk-tanstack-patterns",
+      "source": "clerk/skills",
+      "skillId": "clerk-tanstack-patterns",
+      "name": "clerk-tanstack-patterns",
+      "installs": 14600
+    },
+    {
+      "id": "github/awesome-copilot/refactor-plan",
+      "source": "github/awesome-copilot",
+      "skillId": "refactor-plan",
+      "name": "refactor-plan",
+      "installs": 13047
+    },
+    {
+      "id": "clerk/skills/clerk-expo",
+      "source": "clerk/skills",
+      "skillId": "clerk-expo",
+      "name": "clerk-expo",
+      "installs": 13001
+    },
+    {
+      "id": "greensock/gsap-skills/gsap-core",
+      "source": "greensock/gsap-skills",
+      "skillId": "gsap-core",
+      "name": "gsap-core",
+      "installs": 62964
+    },
+    {
+      "id": "coreyhaines31/marketingskills/paywalls",
+      "source": "coreyhaines31/marketingskills",
+      "skillId": "paywalls",
+      "name": "paywalls",
+      "installs": 61873
+    },
+    {
+      "id": "coreyhaines31/marketingskills/prospecting",
+      "source": "coreyhaines31/marketingskills",
+      "skillId": "prospecting",
+      "name": "prospecting",
+      "installs": 55737
+    },
+    {
+      "id": "msmps/opentui-skill/opentui",
+      "source": "msmps/opentui-skill",
+      "skillId": "opentui",
+      "name": "opentui",
+      "installs": 55693
+    },
+    {
+      "id": "pbakaus/impeccable/extract",
+      "source": "pbakaus/impeccable",
+      "skillId": "extract",
+      "name": "extract",
+      "installs": 54858
+    },
+    {
+      "id": "pbakaus/impeccable/onboard",
+      "source": "pbakaus/impeccable",
+      "skillId": "onboard",
+      "name": "onboard",
+      "installs": 54695
+    },
+    {
+      "id": "greensock/gsap-skills/gsap-frameworks",
+      "source": "greensock/gsap-skills",
+      "skillId": "gsap-frameworks",
+      "name": "gsap-frameworks",
+      "installs": 53016
+    },
+    {
+      "id": "coreyhaines31/marketingskills/paywall-upgrade-cro",
+      "source": "coreyhaines31/marketingskills",
+      "skillId": "paywall-upgrade-cro",
+      "name": "paywall-upgrade-cro",
+      "installs": 52130
+    },
+    {
+      "id": "addyosmani/agent-skills/test-driven-development",
+      "source": "addyosmani/agent-skills",
+      "skillId": "test-driven-development",
+      "name": "test-driven-development",
+      "installs": 45651
+    },
+    {
+      "id": "samber/cc-skills-golang/golang-naming",
+      "source": "samber/cc-skills-golang",
+      "skillId": "golang-naming",
+      "name": "golang-naming",
+      "installs": 41006
+    },
+    {
+      "id": "samber/cc-skills-golang/golang-modernize",
+      "source": "samber/cc-skills-golang",
+      "skillId": "golang-modernize",
+      "name": "golang-modernize",
+      "installs": 40629
+    },
+    {
+      "id": "samber/cc-skills-golang/golang-project-layout",
+      "source": "samber/cc-skills-golang",
+      "skillId": "golang-project-layout",
+      "name": "golang-project-layout",
+      "installs": 40610
+    },
+    {
+      "id": "samber/cc-skills-golang/golang-dependency-injection",
+      "source": "samber/cc-skills-golang",
+      "skillId": "golang-dependency-injection",
+      "name": "golang-dependency-injection",
+      "installs": 39900
+    },
+    {
+      "id": "samber/cc-skills-golang/golang-samber-do",
+      "source": "samber/cc-skills-golang",
+      "skillId": "golang-samber-do",
+      "name": "golang-samber-do",
+      "installs": 38876
+    },
+    {
+      "id": "samber/cc-skills-golang/golang-samber-ro",
+      "source": "samber/cc-skills-golang",
+      "skillId": "golang-samber-ro",
+      "name": "golang-samber-ro",
+      "installs": 38724
+    },
+    {
+      "id": "shadcn-ui/ui/migrate-radix-to-base",
+      "source": "shadcn-ui/ui",
+      "skillId": "migrate-radix-to-base",
+      "name": "migrate-radix-to-base",
+      "installs": 35964
+    },
+    {
+      "id": "shadcn/improve/improve",
+      "source": "shadcn/improve",
+      "skillId": "improve",
+      "name": "improve",
+      "installs": 35085
+    },
+    {
+      "id": "emilkowalski/skills/mobile-native",
+      "source": "emilkowalski/skills",
+      "skillId": "mobile-native",
+      "name": "mobile-native",
+      "installs": 34788
+    },
+    {
+      "id": "zhaono1/agent-playbook/self-improving-agent",
+      "source": "zhaono1/agent-playbook",
+      "skillId": "self-improving-agent",
+      "name": "self-improving-agent",
+      "installs": 34408
+    },
+    {
+      "id": "avdlee/swiftui-agent-skill/swiftui-expert-skill",
+      "source": "avdlee/swiftui-agent-skill",
+      "skillId": "swiftui-expert-skill",
+      "name": "swiftui-expert-skill",
+      "installs": 33718
+    },
+    {
+      "id": "wshobson/agents/nextjs-app-router-patterns",
+      "source": "wshobson/agents",
+      "skillId": "nextjs-app-router-patterns",
+      "name": "nextjs-app-router-patterns",
+      "installs": 31466
+    },
+    {
+      "id": "kadajett/agent-nestjs-skills/nestjs-best-practices",
+      "source": "kadajett/agent-nestjs-skills",
+      "skillId": "nestjs-best-practices",
+      "name": "nestjs-best-practices",
+      "installs": 29042
+    },
+    {
+      "id": "get-convex/agent-skills/convex-monitor",
+      "source": "get-convex/agent-skills",
+      "skillId": "convex-monitor",
+      "name": "convex-monitor",
+      "installs": 28177
+    },
+    {
+      "id": "caffeinelabs/skills/extension-core-infrastructure",
+      "source": "caffeinelabs/skills",
+      "skillId": "extension-core-infrastructure",
+      "name": "extension-core-infrastructure",
+      "installs": 24005
+    },
+    {
+      "id": "wshobson/agents/architecture-patterns",
+      "source": "wshobson/agents",
+      "skillId": "architecture-patterns",
+      "name": "architecture-patterns",
+      "installs": 23198
+    },
+    {
+      "id": "jeffallan/claude-skills/laravel-specialist",
+      "source": "jeffallan/claude-skills",
+      "skillId": "laravel-specialist",
+      "name": "laravel-specialist",
+      "installs": 22449
+    },
+    {
+      "id": "giuseppe-trisciuoglio/developer-kit/shadcn-ui",
+      "source": "giuseppe-trisciuoglio/developer-kit",
+      "skillId": "shadcn-ui",
+      "name": "shadcn-ui",
+      "installs": 22033
+    },
+    {
+      "id": "wshobson/agents/python-design-patterns",
+      "source": "wshobson/agents",
+      "skillId": "python-design-patterns",
+      "name": "python-design-patterns",
+      "installs": 21840
+    },
+    {
+      "id": "software-mansion/argent/argent-metro-debugger",
+      "source": "software-mansion/argent",
+      "skillId": "argent-metro-debugger",
+      "name": "argent-metro-debugger",
+      "installs": 21279
+    },
+    {
+      "id": "warpdotdev/common-skills/cross-critique",
+      "source": "warpdotdev/common-skills",
+      "skillId": "cross-critique",
+      "name": "cross-critique",
+      "installs": 20561
+    },
+    {
+      "id": "warpdotdev/common-skills/research",
+      "source": "warpdotdev/common-skills",
+      "skillId": "research",
+      "name": "research",
+      "installs": 20541
+    },
+    {
+      "id": "wshobson/agents/modern-javascript-patterns",
+      "source": "wshobson/agents",
+      "skillId": "modern-javascript-patterns",
+      "name": "modern-javascript-patterns",
+      "installs": 20354
+    },
+    {
+      "id": "panniantong/agent-reach/agent-reach",
+      "source": "panniantong/agent-reach",
+      "skillId": "agent-reach",
+      "name": "agent-reach",
+      "installs": 18136
+    },
+    {
+      "id": "giuseppe-trisciuoglio/developer-kit/tailwind-css-patterns",
+      "source": "giuseppe-trisciuoglio/developer-kit",
+      "skillId": "tailwind-css-patterns",
+      "name": "tailwind-css-patterns",
+      "installs": 17247
+    }
+  ],
+  "count": 100,
+  "duration_ms": 378,
+  "timings_ms": {
+    "rate_limit": 51.15284500003327,
+    "flags": 1.079810000024736,
+    "visibility": 11.773202999960631,
+    "retrieval": 343.1847730000736,
+    "algolia_processing": 205,
+    "repositories": 22.67689999996219,
+    "ranking": 10.243408999987878,
+    "search": 378,
+    "total": 429.1566630000016
+  },
+  "provider_duration_ms": 343.1847730000736
+}

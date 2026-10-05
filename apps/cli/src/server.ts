@@ -14,6 +14,7 @@ import { getScopesResponse } from "./routes/scopes.js";
 import { getProjectsResponse } from "./routes/projects.js";
 import { mcpRoute } from "./routes/mcp.js";
 import { mcpCatalogRoute } from "./routes/mcpCatalog.js";
+import { discoverRoute } from "./routes/discover.js";
 import { getStatusResponse } from "./routes/status.js";
 import {
   getUsageOverviewResponse,
@@ -189,6 +190,8 @@ export function createApp(options: { token: string }): Hono {
   // MCP routes (catalog before /api/mcp so /catalog is not shadowed)
   app.route("/api/mcp/catalog", mcpCatalogRoute);
   app.route("/api/mcp", mcpRoute);
+
+  app.route("/api/discover", discoverRoute);
 
   app.get("/api/status", async (c) => {
     const result = await getStatusResponse();

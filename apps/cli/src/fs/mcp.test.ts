@@ -10,7 +10,7 @@ import {
   getMergedMcpServers,
 } from "./mcp.js";
 import * as backups from "./backups.js";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { writeFile, mkdir, rm, readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
@@ -181,6 +181,118 @@ describe("MCP fs layer", () => {
       };
 
       await expect(writeMcpConfig(invalidConfig, "user")).rejects.toThrow();
+    });
+  });
+
+  describe("real Claude Code .mcp.json shape", () => {
+    const mcpPath = () => join(testDir, ".mcp.json");
+
+    it("reads real stdio, http and sse entries including headers and timeout", async () => {
+      await writeFile(
+        mcpPath(),
+        JSON.stringify({
+          mcpServers: {
+            local: { type: "stdio", command: "npx", args: ["-y", "x"], env: { K: "v" } },
+            web: {
+              type: "http",
+              url: "https://example.com/mcp",
+              headers: { Authorization: "Bearer t" },
+              timeout: 5000,
+            },
+            events: { type: "sse", url: "https://example.com/sse", headers: { A: "b" } },
+          },
+        }),
+      );
+
+      const { mcpServers } = await readMcpConfig("user");
+
+      expect(mcpServers.local.transport).toEqual({
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "x"],
+        env: { K: "v" },
+      });
+      expect(mcpServers.web.transport).toEqual({
+        type: "http",
+        url: "https://example.com/mcp",
+        headers: { Authorization: "Bearer t" },
+        timeout: 5000,
+      });
+      expect(mcpServers.events.transport).toEqual({
+        type: "sse",
+        url: "https://example.com/sse",
+        headers: { A: "b" },
+      });
+      expect(mcpServers.local.name).toBe("local");
+    });
+
+    it("reads a stdio entry that omits type", async () => {
+      await writeFile(mcpPath(), JSON.stringify({ mcpServers: { s: { command: "node" } } }));
+      const { mcpServers } = await readMcpConfig("user");
+      expect(mcpServers.s.transport).toEqual({ type: "stdio", command: "node", args: [] });
+    });
+
+    it("reads a mixed legacy and real file", async () => {
+      await writeFile(
+        mcpPath(),
+        JSON.stringify({
+          mcpServers: {
+            legacy: { name: "legacy", transport: { type: "stdio", command: "python" } },
+            real: { type: "http", url: "http://localhost:3000" },
+          },
+        }),
+      );
+      const { mcpServers } = await readMcpConfig("user");
+      expect(mcpServers.legacy.transport).toEqual({ type: "stdio", command: "python", args: [] });
+      expect(mcpServers.real.transport).toEqual({ type: "http", url: "http://localhost:3000" });
+    });
+
+    it("rejects garbage entries", async () => {
+      for (const bad of [{}, "str", null, [], { type: "stdio" }]) {
+        await writeFile(mcpPath(), JSON.stringify({ mcpServers: { bad } }));
+        await expect(readMcpConfig("user")).rejects.toThrow("Invalid MCP config");
+      }
+    });
+
+    it("writes the real shape, keeps unknown top-level keys, and reads back equal", async () => {
+      await writeFile(mcpPath(), JSON.stringify({ somethingElse: { keep: true } }));
+      const config = {
+        mcpServers: {
+          local: {
+            name: "local",
+            disabled: false,
+            transport: { type: "stdio", command: "npx", args: ["-y", "x"], env: { K: "v" } },
+          },
+          web: {
+            name: "web",
+            disabled: false,
+            transport: {
+              type: "http",
+              url: "https://example.com/mcp",
+              headers: { A: "b" },
+              timeout: 100,
+            },
+          },
+        },
+      };
+
+      await writeMcpConfig(config, "user");
+
+      const onDisk = JSON.parse(await readFile(mcpPath(), "utf-8"));
+      expect(onDisk.somethingElse).toEqual({ keep: true });
+      expect(onDisk.mcpServers.local).toEqual({
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "x"],
+        env: { K: "v" },
+      });
+      expect(onDisk.mcpServers.web).toEqual({
+        type: "http",
+        url: "https://example.com/mcp",
+        headers: { A: "b" },
+        timeout: 100,
+      });
+      expect(await readMcpConfig("user")).toEqual(config);
     });
   });
 
