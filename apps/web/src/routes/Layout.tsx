@@ -29,6 +29,7 @@ export function Layout() {
     { id: "mcp", label: "MCP Servers", to: `${basePath}/mcp` },
     { id: "settings", label: "Settings", to: `${basePath}/settings` },
     { id: "usage", label: "Usage", to: "/usage" },
+    { id: "discover", label: "Discover", to: "/discover" },
     { id: "claude-md", label: "CLAUDE.md", to: `${basePath}/claude-md` },
     { id: "workspace", label: "Workspace", to: "/workspace" },
   ];

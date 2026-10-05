@@ -11,6 +11,9 @@ const CATEGORY_COLOR_MAP: Record<string, string> = {
   "system tools": "var(--cat-settings)",
   "custom agents": "var(--cat-agents)",
   agents: "var(--cat-agents)",
+  hooks: "var(--cat-claudemd)",
+  mcp: "var(--cat-plugins)",
+  plugins: "var(--cat-plugins)",
   "memory files": "var(--cat-commands)",
   memory: "var(--cat-commands)",
   skills: "var(--cat-plans)",
@@ -36,4 +39,20 @@ function normalizeCategoryName(categoryName: string): string {
  */
 export function getCategoryColor(categoryName: string): string {
   return CATEGORY_COLOR_MAP[normalizeCategoryName(categoryName)] ?? "var(--accent)";
+}
+
+/** Discover item kinds are singular; their category names are plural. */
+const ITEM_KIND_CATEGORY: Record<string, string> = {
+  skill: "skills",
+  agent: "agents",
+  command: "commands",
+  hook: "hooks",
+  mcp: "mcp",
+  setting: "settings",
+  plugin: "plugins",
+};
+
+export function getItemKindColor(kind: string): string {
+  const category = ITEM_KIND_CATEGORY[kind];
+  return category ? getCategoryColor(category) : "var(--accent)";
 }

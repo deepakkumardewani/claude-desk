@@ -11,6 +11,7 @@ import { ThemeProvider } from "./lib/theme";
 import { ScopeProvider } from "./lib/scope";
 import { LAST_ROUTE_KEY, USER_ROUTE_PREFIX } from "./lib/workspaceState";
 import { Backups } from "./routes/Backups";
+import { Discover } from "./routes/Discover";
 import { File } from "./routes/File";
 import { Layout } from "./routes/Layout";
 import { List } from "./routes/List";
@@ -57,6 +58,7 @@ const router = createBrowserRouter([
       { index: true, element: <RedirectIndex /> },
       { path: "backups", element: <Backups /> },
       { path: "usage", element: <Usage /> },
+      { path: "discover", element: <Discover /> },
       { path: "workspace", element: <Workspace /> },
       {
         path: "user",

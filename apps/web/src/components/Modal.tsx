@@ -85,7 +85,9 @@ export function Modal({
         className="mt-14 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-raised shadow-lg outline-none sm:mt-0"
       >
         <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
-          <h2 className="font-display text-base font-semibold text-text">{title}</h2>
+          <h2 className="min-w-0 break-words font-display text-base font-semibold text-text">
+            {title}
+          </h2>
           <div className="flex items-center gap-2">
             {headerAction}
             <button
