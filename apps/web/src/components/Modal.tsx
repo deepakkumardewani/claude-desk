@@ -4,17 +4,26 @@ import { createPortal } from "react-dom";
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+export type ModalSize = "md" | "lg";
+
+const MODAL_WIDTH_CLASS: Record<ModalSize, string> = {
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+};
+
 /** Accessible modal rendered into document.body so it escapes scroll/overflow containers. */
 export function Modal({
   title,
   onClose,
   children,
   headerAction,
+  size = "md",
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   headerAction?: ReactNode;
+  size?: ModalSize;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -82,7 +91,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className="mt-14 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-raised shadow-lg outline-none sm:mt-0"
+        className={`mt-14 flex max-h-[80vh] w-full ${MODAL_WIDTH_CLASS[size]} flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-raised shadow-lg outline-none sm:mt-0`}
       >
         <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
           <h2 className="min-w-0 break-words font-display text-base font-semibold text-text">

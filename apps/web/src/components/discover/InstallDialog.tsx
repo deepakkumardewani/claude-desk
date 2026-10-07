@@ -63,6 +63,57 @@ function workspaceTarget(workspace: Workspace): InstallTarget {
 const sameTarget = (a: InstallTarget, b: InstallTarget) =>
   a.scope === b.scope && a.projectDir === b.projectDir;
 
+type TargetOption = { label: string; detail: string; title: string; target: InstallTarget };
+
+const USER_OPTION: TargetOption = {
+  label: "User",
+  detail: "Machine-wide ~/.claude",
+  title: "Machine-wide ~/.claude",
+  target: { scope: "user" },
+};
+
+/** The app has no home-dir API, so abbreviate the conventional per-user roots (macOS, Linux). */
+const HOME_PREFIX = /^\/(?:Users|home)\/[^/]+/;
+
+const tildePath = (path: string): string => path.replace(HOME_PREFIX, "~");
+
+function projectOption(project: { name: string; dir: string }): TargetOption {
+  return {
+    label: project.name,
+    detail: tildePath(project.dir),
+    title: project.dir,
+    target: { scope: "project", projectDir: project.dir },
+  };
+}
+
+function TargetOptionRow({
+  option,
+  checked,
+  onSelect,
+}: {
+  option: TargetOption;
+  checked: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg bg-surface p-3 ring-1 ring-border-subtle has-[:checked]:ring-accent">
+      <input
+        type="radio"
+        name="install-target"
+        checked={checked}
+        onChange={onSelect}
+        className="mt-1 accent-accent"
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-text">{option.label}</span>
+        <span title={option.title} className="block truncate font-mono text-xs text-text-muted">
+          {option.detail}
+        </span>
+      </span>
+    </label>
+  );
+}
+
 function TargetStep({
   target,
   onChange,
@@ -71,39 +122,27 @@ function TargetStep({
   onChange: (target: InstallTarget) => void;
 }) {
   const { projects } = useWorkspace();
-  const options: Array<{ label: string; detail: string; target: InstallTarget }> = [
-    { label: "User", detail: "Machine-wide ~/.claude", target: { scope: "user" } },
-    ...projects
-      .filter((project) => project.exists)
-      .map((project) => ({
-        label: project.name,
-        detail: project.dir,
-        target: { scope: "project", projectDir: project.dir } as InstallTarget,
-      })),
-  ];
+  const projectOptions = projects.filter((project) => project.exists).map(projectOption);
+  const renderOption = (option: TargetOption) => (
+    <TargetOptionRow
+      key={option.title + option.label}
+      option={option}
+      checked={sameTarget(option.target, target)}
+      onSelect={() => onChange(option.target)}
+    />
+  );
   return (
-    <fieldset className="flex flex-col gap-2">
+    <fieldset className="flex min-w-0 flex-col gap-2">
       <legend className="mb-2 text-sm text-text-muted">Install into</legend>
-      {options.map((option) => (
-        <label
-          key={option.detail}
-          className="flex cursor-pointer items-start gap-2.5 rounded-lg bg-surface p-3 ring-1 ring-border-subtle has-[:checked]:ring-accent"
-        >
-          <input
-            type="radio"
-            name="install-target"
-            checked={sameTarget(option.target, target)}
-            onChange={() => onChange(option.target)}
-            className="mt-1 accent-accent"
-          />
-          <span className="min-w-0">
-            <span className="block text-sm font-medium text-text">{option.label}</span>
-            <span className="block truncate font-mono text-xs text-text-muted">
-              {option.detail}
-            </span>
-          </span>
-        </label>
-      ))}
+      {renderOption(USER_OPTION)}
+      {projectOptions.length > 0 ? (
+        <>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Projects
+          </p>
+          {projectOptions.map(renderOption)}
+        </>
+      ) : null}
     </fieldset>
   );
 }
@@ -261,7 +300,7 @@ export function InstallDialog({ repo, items, onClose, update, skillsShId }: Inst
     : `Install ${items.length} item${items.length === 1 ? "" : "s"} from ${repo.owner}/${repo.repo}`;
 
   return (
-    <Modal title={title} onClose={onClose}>
+    <Modal title={title} size="lg" onClose={onClose}>
       <ol
         aria-label="Install steps"
         className="flex gap-3 border-b border-border-subtle px-4 py-2 text-xs"
@@ -277,7 +316,7 @@ export function InstallDialog({ repo, items, onClose, update, skillsShId }: Inst
         ))}
       </ol>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden p-4">
         {step === "target" ? (
           <>
             <ul aria-label="Items to install" className="flex flex-wrap gap-1.5">

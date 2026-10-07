@@ -10,6 +10,7 @@ import {
 import { getCategoryMeta } from "../lib/categories";
 import { getRecent, type RecentItem } from "../lib/recent";
 import { SetupStatus } from "../components/SetupStatus.js";
+import { Bone } from "../components/Skeleton";
 import {
   categoryItemCount,
   flattenFiles,
@@ -139,10 +140,6 @@ function categoryHref(category: ApiCategory, basePath: string): string {
     return `${basePath}/claude-md`;
   }
   return `${basePath}/${categoryToRoute(category)}`;
-}
-
-function Bone({ className }: { className: string }) {
-  return <div className={`animate-pulse rounded bg-border-subtle ${className}`} />;
 }
 
 function LoadingSkeleton() {

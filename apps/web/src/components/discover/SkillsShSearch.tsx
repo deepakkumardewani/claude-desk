@@ -9,7 +9,8 @@ import {
 import { useInstalledEntry, useInstalls } from "../../lib/installs";
 import { InstallDialog } from "./InstallDialog";
 import { InstalledBadge } from "./ItemCard";
-import { DrawerShell, ItemDrawer } from "./ItemDrawer";
+import { Bone } from "../Skeleton";
+import { DrawerSkeleton, DrawerShell, ItemDrawer } from "./ItemDrawer";
 
 export const SKILLS_SH_SEARCH_DEBOUNCE_MS = 250;
 export const SKILLS_SH_MIN_QUERY_LENGTH = 2;
@@ -207,28 +208,57 @@ function ResolveError({
   );
 }
 
+/** Placeholder chrome matching the resolved drawer: KindChip + path header, Install… + two links. */
+function ResolvingHeader() {
+  return (
+    <>
+      <Bone className="h-5 w-16 rounded-full" />
+      <Bone className="h-4 w-40" />
+    </>
+  );
+}
+
+function ResolvingActions() {
+  return (
+    <>
+      <Bone className="h-8 w-20 rounded-lg" />
+      <Bone className="h-4 w-28" />
+      <Bone className="h-4 w-32" />
+    </>
+  );
+}
+
 /** Resolves the hit to its live repo skill only once opened, then reuses the shared ItemDrawer. */
 function SkillDetail({ result, onClose, onInstall, onOpenRepo }: SkillDetailProps) {
   const [attempt, setAttempt] = useState(0);
   const state = useResolvedSkill(result.id, attempt);
 
-  if (state.status !== "ready") {
+  if (state.status === "loading") {
+    return (
+      <DrawerShell
+        ariaLabel={`${result.name} details`}
+        onClose={onClose}
+        header={<ResolvingHeader />}
+        actions={<ResolvingActions />}
+      >
+        <DrawerSkeleton />
+      </DrawerShell>
+    );
+  }
+
+  if (state.status === "error") {
     return (
       <DrawerShell
         ariaLabel={`${result.name} details`}
         onClose={onClose}
         header={<span className="truncate font-mono text-xs text-text-muted">{result.id}</span>}
       >
-        {state.status === "loading" ? (
-          <p className="text-sm text-text-muted">Loading…</p>
-        ) : (
-          <ResolveError
-            error={state.error}
-            result={result}
-            onRetry={() => setAttempt((n) => n + 1)}
-            onOpenRepo={onOpenRepo}
-          />
-        )}
+        <ResolveError
+          error={state.error}
+          result={result}
+          onRetry={() => setAttempt((n) => n + 1)}
+          onOpenRepo={onOpenRepo}
+        />
       </DrawerShell>
     );
   }

@@ -4,6 +4,7 @@ import { convertedPreview } from "../../lib/convertPreview";
 import { fetchRepoFile, type ScannedRepo } from "../../lib/discoverApi";
 import { parseFrontmatter } from "../../lib/frontmatter";
 import { MarkdownView } from "../MarkdownView";
+import { Bone } from "../Skeleton";
 import { SkillHeader } from "../SkillHeader";
 import { KindChip, pluginChildren } from "./ItemCard";
 
@@ -54,6 +55,36 @@ function CodeView({ code, language }: { code: string; language: string }) {
   return <MarkdownView content={fenced(code, language)} />;
 }
 
+const SKELETON_PILL_WIDTHS = ["w-28", "w-36", "w-24", "w-32"];
+// Varied widths so the placeholder reads as prose rather than a table.
+const SKELETON_LINE_WIDTHS = ["w-full", "w-11/12", "w-full", "w-4/5", "w-full", "w-2/3"];
+
+/** Mirrors SkillHeader plus the markdown body so the drawer does not jump when content arrives. */
+export function DrawerSkeleton() {
+  return (
+    <div role="status" aria-busy="true">
+      <span className="sr-only">Loading…</span>
+      <div className="border-b border-border-subtle pb-6">
+        <Bone className="h-8 w-2/3" />
+        <div className="mt-3 flex flex-col gap-2">
+          <Bone className="h-4 w-full" />
+          <Bone className="h-4 w-4/5" />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {SKELETON_PILL_WIDTHS.map((width) => (
+            <Bone key={width} className={`h-6 rounded-full ${width}`} />
+          ))}
+        </div>
+      </div>
+      <div className="mt-6 flex flex-col gap-3">
+        {SKELETON_LINE_WIDTHS.map((width, index) => (
+          <Bone key={index} className={`h-4 ${width}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FileState({
   state,
   children,
@@ -61,7 +92,7 @@ function FileState({
   state: FileState;
   children: (content: string) => React.ReactNode;
 }) {
-  if (state.status === "loading") return <p className="text-sm text-text-muted">Loading…</p>;
+  if (state.status === "loading") return <DrawerSkeleton />;
   if (state.status === "error") {
     return (
       <p role="alert" className="text-sm text-danger">

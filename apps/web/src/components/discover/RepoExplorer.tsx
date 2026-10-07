@@ -2,14 +2,15 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { DiscoveredItem } from "schema";
 import { scanRepo, type DiscoverApiError, type ScanResponse } from "../../lib/discoverApi";
 import { useInstalls } from "../../lib/installs";
-import { ItemBrowser } from "./ItemCard";
+import { ItemBrowser } from "./ItemBrowser";
 import { InstallDialog } from "./InstallDialog";
 import { ItemDrawer } from "./ItemDrawer";
+import { RepoHeader } from "./RepoHeader";
+import { RepoScanSkeleton } from "./RepoScanSkeleton";
 
 const RECENT_REPOS_KEY = "claude-desk-discover-recent-repos";
 const MAX_RECENT_REPOS = 8;
 const LOW_RATE_LIMIT_THRESHOLD = 10;
-const SHORT_SHA_LENGTH = 7;
 const TRUNCATED_BANNER =
   "Repo is very large; some files may be missing — try a /tree/<ref>/<subpath> link";
 
@@ -49,37 +50,6 @@ function RateLimitHint({ rateLimit }: { rateLimit: ScanResponse["rateLimit"] }) 
       {resetAt ? ` (resets ${new Date(resetAt).toLocaleTimeString()})` : ""}. Set GITHUB_TOKEN or
       run `gh auth login` to raise the limit.
     </p>
-  );
-}
-
-function RepoHeader({ scan }: { scan: ScanResponse }) {
-  const { repo } = scan;
-  return (
-    <header className="flex flex-col gap-2 rounded-xl bg-surface-raised p-4 ring-1 ring-border-subtle">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold text-text">
-          {repo.owner}/{repo.repo}
-        </h2>
-        <a
-          href={repo.htmlUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm font-medium text-accent underline underline-offset-4"
-        >
-          Open on GitHub
-        </a>
-      </div>
-      {repo.description ? <p className="text-sm text-text-muted">{repo.description}</p> : null}
-      <p className="text-xs text-text-muted">
-        <span aria-label="Stars">★ {repo.stars.toLocaleString()}</span>
-        {" · "}
-        <span>
-          {repo.ref} @ <code className="font-mono">{repo.sha.slice(0, SHORT_SHA_LENGTH)}</code>
-        </span>
-        {repo.subpath ? ` · ${repo.subpath}` : ""}
-      </p>
-      <RateLimitHint rateLimit={scan.rateLimit} />
-    </header>
   );
 }
 
@@ -190,9 +160,13 @@ export function RepoExplorer({ request }: { request?: ExploreRequest }) {
 
       {error ? <ErrorNotice error={error} /> : null}
 
+      {loading ? <RepoScanSkeleton /> : null}
+
       {scan ? (
         <>
-          <RepoHeader scan={scan} />
+          <RepoHeader scan={scan}>
+            <RateLimitHint rateLimit={scan.rateLimit} />
+          </RepoHeader>
           {scan.repo.truncated ? (
             <div
               role="alert"
