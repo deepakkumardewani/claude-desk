@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { readFileSync } from "node:fs";
 import { searchSkillsSh, resolveSkillsShItem } from "./skillsSh.js";
 import { scanRepo } from "./github.js";
+import { EndpointOverrideError, SKILLS_SH_URL_VAR } from "./endpoints.js";
+import { createFetchStub } from "../testing/fetchStub.js";
 
 vi.mock("./github.js", () => ({ scanRepo: vi.fn() }));
 const scanMock = vi.mocked(scanRepo);
@@ -9,19 +11,27 @@ const scanMock = vi.mocked(scanRepo);
 const fixture = JSON.parse(
   readFileSync(new URL("./__fixtures__/skills-sh-search.json", import.meta.url), "utf8"),
 );
-const fetchMock = vi.fn();
-const calledUrl = () => new URL(fetchMock.mock.calls.at(-1)?.[0] as string);
 const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
 
+// The shared stub routes (and records) every call; the active reply is swapped per test.
+// Any URL other than skills.sh search throws UnmatchedFetchError instead of using the network.
+let reply: () => Response = () => ok(fixture);
+let stub: ReturnType<typeof createFetchStub>;
+const calledUrl = () => new URL(stub.calls.at(-1) as string);
+
 beforeEach(() => {
-  fetchMock.mockReset();
-  vi.stubGlobal("fetch", fetchMock);
+  reply = () => ok(fixture);
+  stub = createFetchStub([{ match: /\/api\/search/, respond: () => reply() }]);
+  vi.stubGlobal("fetch", stub);
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 describe("searchSkillsSh", () => {
   it("parses the recorded fixture into typed results", async () => {
-    fetchMock.mockResolvedValue(ok(fixture));
+    reply = () => ok(fixture);
     const out = await searchSkillsSh("react", 50);
     if ("error" in out) throw new Error(out.error);
     expect(out.results[0]).toEqual({
@@ -38,11 +48,11 @@ describe("searchSkillsSh", () => {
   it("rejects queries shorter than 2 chars before fetching", async () => {
     expect(await searchSkillsSh("a")).toEqual({ error: "SHORT_QUERY" });
     expect(await searchSkillsSh("  b ")).toEqual({ error: "SHORT_QUERY" });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(stub.calls).toEqual([]);
   });
 
   it("caps limit at 50 in the request and the returned list", async () => {
-    fetchMock.mockResolvedValue(ok(fixture));
+    reply = () => ok(fixture);
     const out = await searchSkillsSh("react", 5000);
     expect(calledUrl().searchParams.get("limit")).toBe("50");
     if ("error" in out) throw new Error(out.error);
@@ -50,7 +60,7 @@ describe("searchSkillsSh", () => {
   });
 
   it("applies the requested limit when under the cap, and defaults on garbage", async () => {
-    fetchMock.mockResolvedValue(ok(fixture));
+    reply = () => ok(fixture);
     const small = await searchSkillsSh("react", 3);
     expect("results" in small && small.results.length).toBe(3);
     await searchSkillsSh("react", Number.NaN);
@@ -61,25 +71,45 @@ describe("searchSkillsSh", () => {
 
   it("returns SKILLS_SH_SCHEMA when expected fields are missing", async () => {
     const broken = { skills: [{ id: "a/b/c", name: "c" }] };
-    fetchMock.mockResolvedValue(ok(broken));
+    reply = () => ok(broken);
     expect(await searchSkillsSh("react")).toEqual({ error: "SKILLS_SH_SCHEMA" });
-    fetchMock.mockResolvedValue(ok({ results: [] }));
+    reply = () => ok({ results: [] });
     expect(await searchSkillsSh("react")).toEqual({ error: "SKILLS_SH_SCHEMA" });
   });
 
   it("returns SKILLS_SH_SCHEMA for a non-JSON 200 body", async () => {
-    fetchMock.mockResolvedValue(new Response("<html>", { status: 200 }));
+    reply = () => new Response("<html>", { status: 200 });
     expect(await searchSkillsSh("react")).toEqual({ error: "SKILLS_SH_SCHEMA" });
   });
 
   it("returns SKILLS_SH_UNREACHABLE when fetch rejects", async () => {
-    fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+    reply = () => {
+      throw new TypeError("fetch failed");
+    };
     expect(await searchSkillsSh("react")).toEqual({ error: "SKILLS_SH_UNREACHABLE" });
   });
 
   it("returns SKILLS_SH_UNREACHABLE on non-2xx", async () => {
-    fetchMock.mockResolvedValue(new Response("", { status: 503 }));
+    reply = () => new Response("", { status: 503 });
     expect(await searchSkillsSh("react")).toEqual({ error: "SKILLS_SH_UNREACHABLE" });
+  });
+
+  it("uses the production URL by default", async () => {
+    vi.stubEnv(SKILLS_SH_URL_VAR, "");
+    await searchSkillsSh("react");
+    expect(stub.calls[0]).toMatch(/^https:\/\/skills\.sh\/api\/search\?/);
+  });
+
+  it("sends the request to a loopback override", async () => {
+    vi.stubEnv(SKILLS_SH_URL_VAR, "http://127.0.0.1:4010/api/search");
+    await searchSkillsSh("react");
+    expect(calledUrl().origin).toBe("http://127.0.0.1:4010");
+  });
+
+  it("rejects a non-loopback override before any request is made", async () => {
+    vi.stubEnv(SKILLS_SH_URL_VAR, "https://evil.example/api/search");
+    await expect(searchSkillsSh("react")).rejects.toBeInstanceOf(EndpointOverrideError);
+    expect(stub.calls).toEqual([]);
   });
 });
 

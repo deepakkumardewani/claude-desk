@@ -177,7 +177,8 @@ describe("startStudio lifecycle", () => {
     await response.body?.getReader().read();
     controller.abort();
 
-    await new Promise((r) => setTimeout(r, 1000));
+    // Yield one macrotask so the server observes the client abort before we probe it.
+    await new Promise((resolve) => setImmediate(resolve));
     const health = await fetch(`${running.url}api/health`, {
       headers: { Authorization: `Bearer ${running.token}` },
     });

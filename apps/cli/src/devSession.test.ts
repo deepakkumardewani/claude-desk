@@ -35,4 +35,16 @@ describe("resolveDevSession", () => {
     const session = resolveDevSession({ port: TEST_PORT, watcherPid: WATCHER_PID });
     expect(session.isFirstBoot).toBe(true);
   });
+
+  it("generates valid tokens on first boot", () => {
+    const session = resolveDevSession({ port: TEST_PORT + 1, watcherPid: WATCHER_PID });
+    expect(session.isFirstBoot).toBe(true);
+    expect(session.token).toBeTruthy();
+    expect(session.token.length).toBe(64);
+    expect(/^[0-9a-f]+$/.test(session.token)).toBe(true);
+  });
+
+  afterEach(() => {
+    rmSync(devSessionPath(TEST_PORT + 1), { force: true });
+  });
 });

@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { backupFile, getBackups, restoreBackup } from "./backups.js";
 
 let fixtureRoot = "";
@@ -16,13 +16,22 @@ async function createTestFile(path: string, content: string): Promise<void> {
   await writeFile(path, content, "utf8");
 }
 
+// Backup names embed an ISO timestamp; advancing a faked Date (fs stays real)
+// gives each backup a distinct name without sleeping.
+const CLOCK_STEP_MS = 10;
+function tickClock(): void {
+  vi.setSystemTime(Date.now() + CLOCK_STEP_MS);
+}
+
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
   previousRoot = process.env.CLAUDE_ROOT;
   fixtureRoot = await mkdtemp(join(tmpdir(), "claude-backups-"));
   process.env.CLAUDE_ROOT = fixtureRoot;
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   process.env.CLAUDE_ROOT = previousRoot;
   await rm(fixtureRoot, { recursive: true, force: true });
 });
@@ -64,9 +73,7 @@ describe("backupFile", () => {
       await writeFile(testFile, `content ${i}`, "utf8");
       await backupFile(testFile);
 
-      if (i < createCount - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
+      tickClock();
     }
 
     const backups = await getBackups(testFile);
@@ -120,7 +127,7 @@ describe("getBackups", () => {
     for (let i = 0; i < 3; i++) {
       await writeFile(testFile, `content ${i}`, "utf8");
       await backupFile(testFile);
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      tickClock();
     }
 
     const backups = await getBackups(testFile);

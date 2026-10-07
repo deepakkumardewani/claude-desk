@@ -1,38 +1,21 @@
-import { mkdtemp, readFile, rm, writeFile, readdir } from "node:fs/promises";
-import { tmpdir, homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { getSettingsFieldMetadata } from "schema";
-import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
+import { beforeEach, describe, expect, test } from "vite-plus/test";
+import { useTempHome } from "../testing/tempHomeHooks.js";
 import { createApp } from "../server.js";
 
 const TEST_TOKEN = "a".repeat(64);
 const AUTH = { Authorization: `Bearer ${TEST_TOKEN}` };
 import { getBackups } from "../fs/backups.js";
 
+const home = useTempHome();
 let fixtureRoot = "";
-let previousRoot: string | undefined;
 
 beforeEach(async () => {
-  previousRoot = process.env.CLAUDE_ROOT;
-  fixtureRoot = await mkdtemp(join(tmpdir(), "claude-settings-fixture-"));
-  process.env.CLAUDE_ROOT = fixtureRoot;
-});
-
-afterEach(async () => {
-  process.env.CLAUDE_ROOT = previousRoot;
-  await rm(fixtureRoot, { recursive: true, force: true });
-  // Clean up backup directory
-  const backupRoot = resolve(homedir(), ".claude", ".claude-desk-backups");
-  try {
-    const entries = await readdir(backupRoot);
-    for (const entry of entries) {
-      if ((entry as string).includes("settings_json")) {
-        await rm(join(backupRoot, entry), { recursive: true, force: true });
-      }
-    }
-  } catch {
-    // Ignore if backup root doesn't exist
-  }
+  // CLAUDE_ROOT is unset by the helper, so the resolver lands on the temp HOME's .claude dir.
+  fixtureRoot = home().claudeDir;
+  await mkdir(fixtureRoot, { recursive: true });
 });
 
 describe("/api/settings/schema", () => {

@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
+import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import { mcpRoute } from "./mcp.js";
 import * as mcpFs from "../fs/mcp.js";
 import * as mcpHealth from "../fs/mcpHealth.js";
-import { homedir } from "node:os";
-import { rm, mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir } from "node:fs/promises";
+import { useTempHome } from "../testing/tempHomeHooks.js";
 
 vi.mock("../fs/mcp.js");
 vi.mock("../fs/mcpHealth.js");
@@ -12,31 +11,17 @@ vi.mock("../fs/backups.js", () => ({
   backupFile: vi.fn().mockResolvedValue(undefined),
 }));
 
-const testDir = resolve(homedir(), ".claude-test-mcp-api");
-
-async function cleanup() {
-  try {
-    await rm(testDir, { recursive: true, force: true });
-  } catch {
-    // ignore
-  }
-}
-
 const emptyHealth = { available: true, status: {} };
 
 describe("MCP Routes", () => {
+  const home = useTempHome();
+
   beforeEach(async () => {
-    await cleanup();
-    await mkdir(testDir, { recursive: true });
-    vi.stubEnv("CLAUDE_ROOT", testDir);
+    await mkdir(home().claudeDir, { recursive: true });
     vi.clearAllMocks();
     vi.mocked(mcpFs.getMergedMcpServers).mockResolvedValue([]);
     vi.mocked(mcpFs.getAllMcpServers).mockResolvedValue({});
     vi.mocked(mcpHealth.queryMcpHealth).mockResolvedValue(emptyHealth);
-  });
-
-  afterEach(async () => {
-    await cleanup();
   });
 
   describe("GET /api/mcp", () => {

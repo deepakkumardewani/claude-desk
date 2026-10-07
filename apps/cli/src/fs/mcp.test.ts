@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
+import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import {
   readMcpConfig,
   writeMcpConfig,
@@ -10,23 +10,18 @@ import {
   getMergedMcpServers,
 } from "./mcp.js";
 import * as backups from "./backups.js";
-import { writeFile, mkdir, rm, readFile } from "node:fs/promises";
-import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { homedir } from "node:os";
+import { writeFile, mkdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { useTempHome } from "../testing/tempHomeHooks.js";
 
-function realClaudeJsonHasUserServers(names: string[]): boolean {
-  try {
-    const raw = readFileSync(join(homedir(), ".claude.json"), "utf8");
-    const parsed = JSON.parse(raw) as { mcpServers?: Record<string, unknown> };
-    const keys = Object.keys(parsed.mcpServers ?? {});
-    return names.every((name) => keys.includes(name));
-  } catch {
-    return false;
-  }
-}
-
-const HAS_REAL_USER_MCP = realClaudeJsonHasUserServers(["chrome-devtools", "agentmemory"]);
+const SEEDED_USER_SERVERS = {
+  "chrome-devtools": {
+    type: "stdio",
+    command: "npx",
+    args: ["-y", "chrome-devtools-mcp@latest"],
+  },
+  agentmemory: { type: "stdio", command: "npx", args: ["-y", "@agentmemory/mcp"] },
+};
 
 // Real fixture text from `claude mcp list` run on this machine (T0.1)
 const CLAUDE_MCP_LIST_FIXTURE = `Checking MCP server health…
@@ -41,8 +36,6 @@ vi.mock("./backups", () => ({
   backupFile: vi.fn().mockResolvedValue(undefined),
 }));
 
-const testDir = resolve(homedir(), ".claude-test-mcp");
-
 /** Force file-write fallback so unit tests don't invoke the real Claude CLI. */
 async function missingCliRunner(): Promise<string> {
   const err = new Error("spawn claude ENOENT") as NodeJS.ErrnoException;
@@ -50,24 +43,14 @@ async function missingCliRunner(): Promise<string> {
   throw err;
 }
 
-async function cleanup() {
-  try {
-    await rm(testDir, { recursive: true, force: true });
-  } catch {
-    // ignore
-  }
-}
-
 describe("MCP fs layer", () => {
-  beforeEach(async () => {
-    await cleanup();
-    await mkdir(testDir, { recursive: true });
-    // Mock process.env.CLAUDE_ROOT for scoped.ts
-    vi.stubEnv("CLAUDE_ROOT", testDir);
-  });
+  const home = useTempHome();
+  let testDir = "";
 
-  afterEach(async () => {
-    await cleanup();
+  beforeEach(async () => {
+    // With CLAUDE_ROOT unset, the resolver points scoped.ts at the temp HOME's .claude dir.
+    testDir = home().claudeDir;
+    await mkdir(testDir, { recursive: true });
   });
 
   describe("readMcpConfig", () => {
@@ -432,21 +415,19 @@ describe("MCP fs layer", () => {
 // ─── Phase 1 tests ────────────────────────────────────────────────────────────
 
 describe("Phase 1 — getMergedMcpServers", () => {
-  const scratchDir = resolve(homedir(), ".claude-test-merge");
-  const claudeJsonPath = join(scratchDir, "claude.json");
+  const home = useTempHome();
+  let scratchDir = "";
+  let claudeJsonPath = "";
+
+  beforeEach(() => {
+    scratchDir = join(home().home, "scratch");
+    claudeJsonPath = join(scratchDir, "claude.json");
+  });
 
   async function writeClaudeJson(data: object) {
     await mkdir(scratchDir, { recursive: true });
     await writeFile(claudeJsonPath, JSON.stringify(data));
   }
-
-  afterEach(async () => {
-    try {
-      await rm(scratchDir, { recursive: true, force: true });
-    } catch {
-      // ignore
-    }
-  });
 
   // T1.1 — readClaudeJson
   describe("readClaudeJson (T1.1)", () => {
@@ -496,16 +477,13 @@ describe("Phase 1 — getMergedMcpServers", () => {
       expect(result.local).toEqual({});
     });
 
-    // T1.1 verification: real machine snapshot (skipped when that file is absent)
-    it.skipIf(!HAS_REAL_USER_MCP)(
-      "finds chrome-devtools and agentmemory with scope user from real ~/.claude.json",
-      async () => {
-        const realPath = join(homedir(), ".claude.json");
-        const result = await readClaudeJson(realPath);
-        expect(Object.keys(result.user)).toContain("chrome-devtools");
-        expect(Object.keys(result.user)).toContain("agentmemory");
-      },
-    );
+    // T1.1 verification: seeded snapshot of the machine-shaped file (no real home access)
+    it("finds chrome-devtools and agentmemory with scope user from a seeded ~/.claude.json", async () => {
+      await writeClaudeJson({ mcpServers: SEEDED_USER_SERVERS });
+      const result = await readClaudeJson(claudeJsonPath);
+      expect(Object.keys(result.user)).toContain("chrome-devtools");
+      expect(Object.keys(result.user)).toContain("agentmemory");
+    });
   });
 
   // T1.2 — parseMcpListNames + runClaudeMcpList
@@ -614,21 +592,18 @@ describe("Phase 1 — getMergedMcpServers", () => {
     });
   });
 
-  // T1.4 — regression against real machine
+  // T1.4 — regression against a machine-shaped seeded file
   describe("Real machine regression (T1.4)", () => {
-    it.skipIf(!HAS_REAL_USER_MCP)(
-      "returns chrome-devtools and agentmemory from real ~/.claude.json",
-      async () => {
-        const realPath = join(homedir(), ".claude.json");
-        const servers = await getMergedMcpServers({
-          claudeJsonPath: realPath,
-          // Use a no-op CLI runner to avoid slow network in tests
-          cliRunner: async () => "",
-        });
-        const names = servers.map((s) => s.name);
-        expect(names).toContain("chrome-devtools");
-        expect(names).toContain("agentmemory");
-      },
-    );
+    it("returns chrome-devtools and agentmemory from a seeded ~/.claude.json", async () => {
+      await writeClaudeJson({ mcpServers: SEEDED_USER_SERVERS });
+      const servers = await getMergedMcpServers({
+        claudeJsonPath,
+        // Use a no-op CLI runner to avoid slow network in tests
+        cliRunner: async () => "",
+      });
+      const names = servers.map((s) => s.name);
+      expect(names).toContain("chrome-devtools");
+      expect(names).toContain("agentmemory");
+    });
   });
 });

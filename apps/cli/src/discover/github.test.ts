@@ -15,6 +15,8 @@ import {
   scanRepo,
 } from "./github.js";
 import { DiscoverError } from "./errors.js";
+import { EndpointOverrideError, GITHUB_API_BASE_VAR } from "./endpoints.js";
+import { createFetchStub } from "../testing/fetchStub.js";
 
 const fixture = (name: string) =>
   JSON.parse(readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), "utf8"));
@@ -28,6 +30,18 @@ const json = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), { status: 200, headers: { ...rl }, ...init });
 
 const fetchMock = vi.fn();
+// Shared stub as a network guard: only GitHub (or loopback override) hosts are routable, so a
+// stray call to anything else throws instead of leaving the machine. `fetchMock` keeps the
+// per-test responses and the request init (headers) these assertions inspect.
+const ALLOWED_HOSTS =
+  /^(https:\/\/(api\.github\.com|raw\.githubusercontent\.com)|http:\/\/127\.0\.0\.1)[:/]/;
+const networkGuard = createFetchStub([
+  { match: (url) => ALLOWED_HOSTS.test(url.href), respond: () => new Response("{}") },
+]);
+const guardedFetch = async (input: string | URL | Request, init?: RequestInit) => {
+  await networkGuard(input);
+  return fetchMock(input, init);
+};
 const lastHeaders = () => fetchMock.mock.calls.at(-1)?.[1]?.headers as Record<string, string>;
 
 async function expectCode(p: Promise<unknown>, code: string) {
@@ -44,7 +58,7 @@ beforeEach(() => {
   resetGitHubClientState();
   fetchMock.mockReset();
   execFileMock.mockReset();
-  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("fetch", guardedFetch);
   vi.stubEnv("GITHUB_TOKEN", "");
   vi.stubEnv("GH_TOKEN", "");
   execFileMock.mockImplementation((_c, _a, _o, cb) => cb(new Error("gh: not found"), ""));
@@ -92,6 +106,31 @@ describe("token resolution", () => {
     expect(await isGitHubAuthenticated()).toBe(false);
     await isGitHubAuthenticated();
     expect(execFileMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("endpoint overrides", () => {
+  it("uses the production API host by default", async () => {
+    vi.stubEnv(GITHUB_API_BASE_VAR, "");
+    fetchMock.mockResolvedValue(json(treeFixture));
+    await fetchTree({ owner: "a", repo: "b" }, SHA);
+    expect(fetchMock.mock.calls[0]?.[0]).toMatch(/^https:\/\/api\.github\.com\//);
+  });
+
+  it("sends requests to a loopback override", async () => {
+    vi.stubEnv(GITHUB_API_BASE_VAR, "http://127.0.0.1:4010");
+    fetchMock.mockResolvedValue(json(treeFixture));
+    await fetchTree({ owner: "a", repo: "b" }, SHA);
+    expect(fetchMock.mock.calls[0]?.[0]).toMatch(/^http:\/\/127\.0\.0\.1:4010\//);
+  });
+
+  it("rejects a non-loopback override before any request, so no token can leak", async () => {
+    vi.stubEnv(GITHUB_API_BASE_VAR, "https://evil.example");
+    vi.stubEnv("GITHUB_TOKEN", "secret");
+    await expect(fetchTree({ owner: "a", repo: "b" }, SHA)).rejects.toBeInstanceOf(
+      EndpointOverrideError,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
