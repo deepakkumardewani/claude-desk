@@ -1,0 +1,2 @@
+{"type":"user","uuid":"u7","parentUuid":null,"timestamp":"2026-06-14T20:00:00.000Z","cwd":"__E2E_HOME__/workspace/billing-api","message":{"role":"user","content":"Explain the ledger schema"}}
+{"type":"assistant","uuid":"a7","parentUuid":"u7","requestId":"req-a7","timestamp":"2026-06-14T20:00:30.000Z","cwd":"__E2E_HOME__/workspace/billing-api","message":{"id":"msg-a7","role":"assistant","model":"claude-haiku-4-5","usage":{"input_tokens":3000,"output_tokens":500,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}

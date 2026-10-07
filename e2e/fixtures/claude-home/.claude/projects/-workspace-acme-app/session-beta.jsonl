@@ -1,0 +1,2 @@
+{"type":"user","uuid":"u4","parentUuid":null,"timestamp":"2026-06-12T12:00:00.000Z","cwd":"__E2E_HOME__/workspace/acme-app","message":{"role":"user","content":"Refactor the config loader"}}
+{"type":"assistant","uuid":"a4","parentUuid":"u4","requestId":"req-a4","timestamp":"2026-06-12T12:00:30.000Z","cwd":"__E2E_HOME__/workspace/acme-app","message":{"id":"msg-a4","role":"assistant","model":"claude-sonnet-4-6","usage":{"input_tokens":3000,"output_tokens":1500,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}

@@ -1,0 +1,26 @@
+{
+  "numStartups": 3,
+  "mcpServers": {
+    "local-echo": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["-e", "process.stdin.resume()"]
+    },
+    "broken-remote": {
+      "type": "http",
+      "url": "http://127.0.0.1:9/mcp"
+    }
+  },
+  "projects": {
+    "__E2E_HOME__/workspace/acme-app": {
+      "allowedTools": [],
+      "mcpServers": {
+        "acme-db": {
+          "type": "stdio",
+          "command": "node",
+          "args": ["acme-db-server.js"]
+        }
+      }
+    }
+  }
+}

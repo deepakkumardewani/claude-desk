@@ -1,0 +1,31 @@
+{
+  "model": "sonnet",
+  "effortLevel": "medium",
+  "env": {
+    "E2E_FLAG": "1",
+    "E2E_REGION": "test-region"
+  },
+  "permissions": {
+    "allow": ["Bash(ls:*)"],
+    "deny": ["Read(./.env)"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "echo pre-tool-check" }]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "acme-market": {
+      "source": { "source": "github", "repo": "acme/market" }
+    }
+  },
+  "enabledPlugins": {
+    "acme-tools@acme-market": true
+  },
+  "skillOverrides": {
+    "release-notes": "name-only"
+  }
+}

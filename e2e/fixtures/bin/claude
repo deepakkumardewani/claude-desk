@@ -1,0 +1,4 @@
+#!/bin/sh
+# E2E stand-in for the real `claude` CLI (QUALITY-REVIEW-FINDINGS F6). global-setup puts this
+# directory first on the server's PATH and exports E2E_NODE, so tests never run a real binary.
+exec "$E2E_NODE" "$(dirname "$0")/claude.mjs" "$@"

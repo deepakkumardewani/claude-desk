@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "plugins": {
+    "acme-tools@acme-market": {
+      "version": "1.0.0",
+      "installPath": "__E2E_HOME__/.claude/plugins/cache/acme-market/acme-tools/1.0.0"
+    }
+  }
+}
