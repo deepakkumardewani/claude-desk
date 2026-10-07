@@ -186,6 +186,13 @@ describe("SkillsShSearch detail + install", () => {
     );
   });
 
+  it("shows the drawer skeleton and action placeholders while resolving", async () => {
+    resolveSkillsShItem.mockReturnValue(new Promise(() => {}));
+    await openResult();
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Install…" })).toBeNull();
+  });
+
   it("shows the locate-failure copy and opens the repo in the GitHub explorer", async () => {
     resolveSkillsShItem.mockResolvedValue({
       ok: false,

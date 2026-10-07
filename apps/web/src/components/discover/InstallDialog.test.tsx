@@ -13,11 +13,10 @@ vi.mock("../../lib/discoverApi", () => ({
 }));
 
 let workspace: { kind: "user" } | { kind: "project"; dir: string } = { kind: "user" };
+const DEFAULT_PROJECTS = [{ dir: "/work/app", name: "app", exists: true }];
+let projects = DEFAULT_PROJECTS;
 vi.mock("../../lib/scope", () => ({
-  useWorkspace: () => ({
-    workspace,
-    projects: [{ dir: "/work/app", name: "app", exists: true }],
-  }),
+  useWorkspace: () => ({ workspace, projects }),
 }));
 
 const ROOT = "/home/u/.claude";
@@ -91,12 +90,38 @@ async function reachChanges(plan: InstallPlan) {
 
 beforeEach(() => {
   workspace = { kind: "user" };
+  projects = DEFAULT_PROJECTS;
 });
 
 afterEach(() => {
   cleanup();
   fetchPlan.mockReset();
   applyPlan.mockReset();
+});
+
+describe("InstallDialog target step", () => {
+  const LONG_DIR = `/Users/deepak/${"deeply-nested/".repeat(8)}project`;
+
+  it("pins User first, then a Projects group with home-abbreviated paths", () => {
+    projects = [{ dir: LONG_DIR, name: "long", exists: true }];
+    renderDialog();
+    const radios = screen.getAllByRole("radio");
+    expect(radios[0].closest("label")?.textContent).toContain("User");
+    expect(screen.getByText("Projects")).toBeTruthy();
+    expect(screen.getByText(LONG_DIR.replace("/Users/deepak", "~"))).toBeTruthy();
+  });
+
+  it("keeps long paths from overflowing: min-w-0 fieldset and a full-path title tooltip", () => {
+    projects = [{ dir: LONG_DIR, name: "long", exists: true }];
+    renderDialog();
+    expect(screen.getByRole("group", { name: "Install into" }).className).toContain("min-w-0");
+    expect(screen.getByTitle(LONG_DIR).className).toContain("truncate");
+  });
+
+  it("renders the dialog at the wide size", () => {
+    renderDialog();
+    expect(screen.getByRole("dialog").className).toContain("max-w-2xl");
+  });
 });
 
 describe("InstallDialog", () => {

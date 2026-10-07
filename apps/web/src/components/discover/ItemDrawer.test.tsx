@@ -32,6 +32,20 @@ afterEach(() => {
 });
 
 describe("ItemDrawer", () => {
+  it("shows an accessible skeleton while the file loads", async () => {
+    fetchRepoFile.mockReturnValue(new Promise(() => {}));
+    open({
+      id: "skills/pdf",
+      kind: "skill",
+      name: "pdf",
+      path: "skills/pdf",
+      files: [file("skills/pdf/SKILL.md")],
+    });
+    const status = await screen.findByRole("status");
+    expect(status.getAttribute("aria-busy")).toBe("true");
+    expect(status.textContent).toContain("Loading…");
+  });
+
   it("renders a skill's SKILL.md as markdown with frontmatter header, fetching lazily by path", async () => {
     fetchRepoFile.mockResolvedValue({
       ok: true,

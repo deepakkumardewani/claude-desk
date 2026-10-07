@@ -122,7 +122,7 @@ describe("Discover", () => {
     render(<Discover />);
     fireEvent.change(screen.getByLabelText("GitHub repository"), { target: { value: "o/r" } });
     fireEvent.click(screen.getByRole("button", { name: "Explore" }));
-    const card = await screen.findByTestId("item-card");
+    const card = await screen.findByTestId("item-row");
     await waitFor(() =>
       expect(within(card).getByTestId("installed-badge").textContent).toBe("Installed"),
     );

@@ -68,6 +68,40 @@ describe("RepoExplorer", () => {
     );
   });
 
+  it("shows a scanning status skeleton while the repo loads", async () => {
+    let finish: (value: unknown) => void = () => {};
+    scanRepo.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    render(<RepoExplorer />);
+    fireEvent.change(screen.getByLabelText("GitHub repository"), {
+      target: { value: "anthropics/skills" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Explore" }));
+    expect((await screen.findByRole("status")).textContent).toContain("Scanning repository…");
+    finish(scan());
+    await screen.findByText("Open on GitHub");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows branch and subpath pills and a merged per-kind summary", async () => {
+    const copy = (root: string) => ({
+      id: `skill:${root}/skills/animate`,
+      kind: "skill",
+      name: "animate",
+      path: `${root}/skills/animate`,
+      files: [],
+    });
+    const result = scan({
+      items: [copy(".claude"), copy(".agents"), copy(".codex"), skillItem("pdf")],
+    });
+    result.repo = { ...result.repo, subpath: "plugins/x" } as typeof result.repo;
+    scanRepo.mockResolvedValue(result);
+    render(<RepoExplorer />);
+    await explore();
+    expect(screen.getByText("plugins/x")).toBeTruthy();
+    expect(screen.getByText("2 skills")).toBeTruthy();
+    expect(screen.getByText("(2 duplicate copies merged)")).toBeTruthy();
+  });
+
   it("shows the rate-limit hint only when unauthenticated and remaining < 10", async () => {
     scanRepo.mockResolvedValue(scan({ rateLimit: { authenticated: false, remaining: 3 } }));
     render(<RepoExplorer />);
@@ -139,7 +173,7 @@ describe("RepoExplorer", () => {
     expect(scanRepo).toHaveBeenCalledTimes(2);
   });
 
-  it("opens the install dialog for the selected items from the sticky footer", async () => {
+  it("opens the install dialog for the selected items from the selection dock", async () => {
     scanRepo.mockResolvedValue(
       scan({ items: [skillItem("pdf"), skillItem("docx"), skillItem("xlsx")] }),
     );
@@ -150,12 +184,12 @@ describe("RepoExplorer", () => {
       </MemoryRouter>,
     );
     await explore();
-    expect(screen.queryByTestId("selection-footer")).toBeNull();
+    expect(screen.queryByTestId("selection-dock")).toBeNull();
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Select pdf" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select docx" }));
-    expect(screen.getByTestId("selection-footer").textContent).toContain("2 selected");
-    fireEvent.click(screen.getByRole("button", { name: "Install…" }));
+    expect(screen.getByTestId("selection-dock").textContent).toContain("Skills 2");
+    fireEvent.click(screen.getByRole("button", { name: "Install 2" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(dialog.getAttribute("aria-label")).toBe("Install 2 items from anthropics/skills");

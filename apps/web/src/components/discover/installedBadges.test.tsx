@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import type { DiscoveredItem, InstalledEntry } from "schema";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { InstallsProvider } from "../../lib/installs";
-import { ItemBrowser } from "./ItemCard";
+import { ItemBrowser } from "./ItemBrowser";
 import { SkillsShSearch, SKILLS_SH_SEARCH_DEBOUNCE_MS } from "./SkillsShSearch";
 
 const listInstalls = vi.fn();
@@ -66,7 +66,7 @@ afterEach(() => {
   searchSkillsSh.mockReset();
 });
 
-describe("ItemCard installed badge", () => {
+describe("ItemRow installed badge", () => {
   const repo = { owner: "acme", repo: "kit" };
 
   it("badges only the card whose source and path match", async () => {
@@ -74,9 +74,9 @@ describe("ItemCard installed badge", () => {
       [entry()],
       <ItemBrowser items={[item("pdf"), item("git")]} repo={repo} onOpen={vi.fn()} />,
     );
-    const cards = screen.getAllByTestId("item-card");
-    expect(within(cards[0]).getByTestId("installed-badge").textContent).toBe("Installed");
-    expect(within(cards[1]).queryByTestId("installed-badge")).toBeNull();
+    const rows = screen.getAllByTestId("item-row");
+    expect(within(rows[0]).getByTestId("installed-badge").textContent).toBe("Installed");
+    expect(within(rows[1]).queryByTestId("installed-badge")).toBeNull();
   });
 
   it("shows Update available once a check reports it", async () => {
