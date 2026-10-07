@@ -4,10 +4,10 @@ import {
   type DiscoveredItem,
   type SkillsShResult,
 } from "schema";
+import { skillsShSearchUrl } from "./endpoints.js";
 import { DiscoverError } from "./errors.js";
 import { scanRepo, type ScanResult } from "./github.js";
 
-const SEARCH_URL = "https://skills.sh/api/search";
 const MIN_QUERY_LENGTH = 2;
 const DEFAULT_LIMIT = 20;
 const REQUEST_TIMEOUT_MS = 8_000;
@@ -33,7 +33,7 @@ export async function searchSkillsSh(
   if (query.length < MIN_QUERY_LENGTH) return { error: "SHORT_QUERY" };
 
   const cap = clampLimit(limit);
-  const url = `${SEARCH_URL}?${new URLSearchParams({ q: query, limit: String(cap) })}`;
+  const url = `${skillsShSearchUrl()}?${new URLSearchParams({ q: query, limit: String(cap) })}`;
 
   let body: unknown;
   try {

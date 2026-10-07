@@ -1,8 +1,8 @@
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import type { Scope, SettingsLayer } from "schema";
 import { PathEscapeError } from "../errors.js";
+import { claudeRoot } from "./claudePaths.js";
 
 export const CATEGORY_IDS = [
   "skills",
@@ -43,7 +43,7 @@ export class InvalidProjectDirError extends Error {
 }
 
 export function userClaudeRoot(): string {
-  return resolve(process.env.CLAUDE_ROOT ?? join(homedir(), ".claude"));
+  return claudeRoot();
 }
 
 export function requireAbsoluteProjectDir(projectDir?: string): string {

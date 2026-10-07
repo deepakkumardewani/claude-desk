@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
+import { claudeHome, homeForDisplay } from "../fs/claudePaths.js";
 import { userClaudeRoot } from "../fs/scoped.js";
 
 /** Claude's local estimator (`U_`) is characters / 4. */
@@ -186,7 +187,7 @@ function inferSkillGroup(sourcePath: string | undefined): string | undefined {
   const path = sourcePath.replace(/\\/g, "/");
   const plugin = path.match(/\/plugins\/(?:cache\/)?([^/]+)/i);
   if (plugin) return `Plugin (${plugin[1]})`;
-  const home = (process.env.HOME ?? "").replace(/\\/g, "/");
+  const home = homeForDisplay().replace(/\\/g, "/");
   if (
     home &&
     (path.startsWith(`${home}/.claude/skills/`) || path.startsWith(`${home}/.cursor/skills/`))
@@ -268,10 +269,10 @@ export async function getContextResponse(): Promise<ContextResponse> {
     let stdout = "";
     let stderr = "";
 
-    // cwd: process.env.HOME ensures we fetch global context (from ~/.claude)
+    // cwd: claudeHome() ensures we fetch global context (from ~/.claude)
     // not project-scoped context
     const child = spawn("claude", ["/context"], {
-      cwd: process.env.HOME,
+      cwd: claudeHome(),
       env: process.env,
       timeout: 10_000,
       stdio: ["ignore", "pipe", "pipe"],
@@ -684,7 +685,7 @@ export async function enrichZeroItemTokens(parsed: ContextAllSuccess): Promise<C
 }
 
 export async function getContextAllResponse(cwd?: string): Promise<ContextAllResponse> {
-  const spawnCwd = cwd ?? process.env.HOME ?? process.cwd();
+  const spawnCwd = cwd ?? claudeHome();
   return new Promise((resolve) => {
     let stdout = "";
     let stderr = "";

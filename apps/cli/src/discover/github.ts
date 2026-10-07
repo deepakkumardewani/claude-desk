@@ -1,11 +1,10 @@
 import { execFile } from "node:child_process";
 import { MAX_FILE_BYTES, type DiscoveredItem, type RepoRef } from "schema";
 import { detectWithWarnings, neededFilePaths } from "./detect.js";
+import { githubApiBase, githubRawBase } from "./endpoints.js";
 import { DiscoverError } from "./errors.js";
 import { parseRepoInput } from "./repoInput.js";
 
-const API_BASE = "https://api.github.com";
-const RAW_BASE = "https://raw.githubusercontent.com";
 const USER_AGENT = "claude-desk";
 const GH_TOKEN_TIMEOUT_MS = 3_000;
 const FULL_SHA = /^[0-9a-f]{40}$/i;
@@ -124,7 +123,7 @@ async function getJson<T>(
   path: string,
   what: string,
 ): Promise<{ data: T; rateLimit?: RateLimitInfo }> {
-  const res = await request(`${API_BASE}${path}`, "application/vnd.github+json");
+  const res = await request(`${githubApiBase()}${path}`, "application/vnd.github+json");
   if (!res.ok) await throwForStatus(res, what);
   return { data: (await res.json()) as T, rateLimit: parseRateLimit(res.headers) };
 }
@@ -146,7 +145,7 @@ export async function fetchRepoMeta(input: RepoCoords & { ref?: string }): Promi
   const ref = input.ref ?? repo.default_branch;
 
   const shaRes = await request(
-    `${API_BASE}${base}/commits/${encodeRef(ref)}`,
+    `${githubApiBase()}${base}/commits/${encodeRef(ref)}`,
     "application/vnd.github.sha",
   );
   if (!shaRes.ok) await throwForStatus(shaRes, `ref "${ref}" in ${input.owner}/${input.repo}`);
@@ -247,7 +246,7 @@ export async function fetchRawFile(
     throw new DiscoverError("BAD_INPUT", "Raw files must be fetched by full commit SHA");
   }
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-  const url = `${RAW_BASE}/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${sha}/${encodedPath}`;
+  const url = `${githubRawBase()}/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${sha}/${encodedPath}`;
   const res = await request(url, "text/plain");
   if (!res.ok) await throwForStatus(res, `${path} in ${owner}/${repo}`);
 

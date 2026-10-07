@@ -1,5 +1,5 @@
 import { copyFile, mkdir, readdir, rm, stat } from "node:fs/promises";
-import { homedir } from "node:os";
+import { claudeRoot } from "./claudePaths.js";
 import { dirname, join, resolve } from "node:path";
 
 const MAX_BACKUPS_PER_FILE = 20;
@@ -9,8 +9,7 @@ const MAX_BACKUPS_PER_FILE = 20;
  * Mirrors the source file's path structure under ~/.claude/.claude-desk-backups/
  */
 function getBackupDir(absPath: string): string {
-  const claudeRoot = resolve(process.env.CLAUDE_ROOT ?? resolve(homedir(), ".claude"));
-  const backupRoot = resolve(claudeRoot, ".claude-desk-backups");
+  const backupRoot = resolve(claudeRoot(), ".claude-desk-backups");
   // For simplicity, we'll use the absolute path with slashes replaced by dashes
   // to avoid deep directory structure, but keep it readable
   const normalized = absPath.replace(/^\//, "").replace(/\//g, "_");

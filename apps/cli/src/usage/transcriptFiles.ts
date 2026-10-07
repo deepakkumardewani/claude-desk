@@ -1,8 +1,6 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { homedir } from "node:os";
-
-export const PROJECTS_DIR = join(homedir(), ".claude", "projects");
+import { projectsDir } from "../fs/claudePaths.js";
 
 const JSONL_EXTENSION = ".jsonl";
 
@@ -18,19 +16,20 @@ export interface TranscriptFile {
  */
 export async function listTranscriptFiles(): Promise<TranscriptFile[]> {
   const files: TranscriptFile[] = [];
+  const root = projectsDir();
 
   try {
-    const projectDirs = await readdir(PROJECTS_DIR, { withFileTypes: true });
+    const projectDirs = await readdir(root, { withFileTypes: true });
 
     for (const dir of projectDirs) {
       if (!dir.isDirectory()) continue;
 
       try {
-        const entries = await readdir(join(PROJECTS_DIR, dir.name), { withFileTypes: true });
+        const entries = await readdir(join(root, dir.name), { withFileTypes: true });
         for (const entry of entries) {
           if (entry.isFile() && entry.name.endsWith(JSONL_EXTENSION)) {
             files.push({
-              path: join(PROJECTS_DIR, dir.name, entry.name),
+              path: join(root, dir.name, entry.name),
               project: dir.name,
               sessionId: entry.name.slice(0, -JSONL_EXTENSION.length),
             });

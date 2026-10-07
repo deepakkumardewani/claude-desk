@@ -1,11 +1,11 @@
 import { mkdir, readFile, writeFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { homedir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { McpConfig, McpScope } from "schema";
 import { safeParseMcpConfig, mcpServerSchema } from "schema";
 import { backupFile } from "./backups.js";
+import { claudeJsonPath } from "./claudePaths.js";
 import { requireAbsoluteProjectDir, userClaudeRoot } from "./scoped.js";
 
 const execFileAsync = promisify(execFile);
@@ -42,11 +42,7 @@ interface ClaudeJson {
 }
 
 export function defaultClaudeJsonPath(): string {
-  const configDir = process.env.CLAUDE_CONFIG_DIR;
-  if (configDir) {
-    return join(configDir, ".claude.json");
-  }
-  return join(homedir(), ".claude.json");
+  return claudeJsonPath();
 }
 
 export async function readClaudeJson(
