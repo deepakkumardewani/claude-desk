@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus";
+import { coverageBase, coverageThresholds } from "../../vitest.shared.ts";
 
 export default defineConfig({
   pack: {
@@ -12,4 +13,8 @@ export default defineConfig({
     },
   },
   fmt: {},
+  test: {
+    coverage: { ...coverageBase, thresholds: coverageThresholds },
+    globalSetup: ["../../apps/cli/src/testing/globalSetupGuard.ts"],
+  },
 });

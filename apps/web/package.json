@@ -7,7 +7,7 @@
     "dev": "vp dev",
     "build": "tsc -b && vp build",
     "preview": "vp preview",
-    "test": "vp test",
+    "test": "vp test run --coverage",
     "check": "vp check"
   },
   "dependencies": {

@@ -13,9 +13,14 @@
     "build": "vp run schema#build && vp run web#build && vp run claude-desk#build",
     "test": "vp test",
     "check": "vp run schema#build && vp check",
-    "prepare": "vp config --no-hooks"
+    "prepare": "vp config --no-hooks",
+    "e2e": "vp run build && playwright test",
+    "e2e:ui": "vp run build && playwright test --ui",
+    "e2e:check": "node e2e/scripts/check-scenarios.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@vitest/coverage-v8": "4.1.9",
     "vite-plus": "0.2.1"
   },
   "engines": {

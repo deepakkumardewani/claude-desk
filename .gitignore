@@ -42,3 +42,8 @@ apps/cli/LICENSE
 agent_docs/
 node-compile-cache/
 .vite-hooks/
+# Test coverage reports
+coverage/
+# Playwright test results and reports
+test-results/
+playwright-report/
