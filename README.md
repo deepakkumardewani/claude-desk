@@ -4,7 +4,7 @@
 
 # Claude Desk
 
-Browse and edit your [Claude Code](https://docs.claude.com/en/docs/claude-code) config (`~/.claude`) in the browser — skills, plans, commands, agents, plugins, MCP, usage, backups, `CLAUDE.md`, and settings — without hand-editing JSON in the terminal.
+Browse and edit your [Claude Code](https://docs.claude.com/en/docs/claude-code) config (`~/.claude`) in the browser — skills, plans, commands, agents, plugins, MCP, usage, backups, `CLAUDE.md`, and settings — without hand-editing JSON in the terminal. Discover new skills, agents, hooks, and MCP servers from skills.sh and GitHub and install them with a reviewable plan.
 
 ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
@@ -21,7 +21,7 @@ npx claude-desk
 
 One command starts a localhost server and opens the UI. Close the tab to shut down (or pass `--keep-alive`).
 
-[Why](#why) · [Features](#features) · [What's inside](#whats-inside) · [Quick start](#quick-start) · [Usage](#usage) · [Development](#development) · [Contributing](#contributing) · [How it works](#how-it-works) · [Privacy](#privacy--security)
+[Why](#why) · [Features](#features) · [What's inside](#whats-inside) · [Discover](#discover) · [Quick start](#quick-start) · [Usage](#usage) · [Development](#development) · [Contributing](#contributing) · [How it works](#how-it-works) · [Privacy](#privacy--security)
 
 </div>
 
@@ -39,6 +39,9 @@ Claude Desk gives you a local browser UI for the same config: search it, read it
 - **Workspace browser** — navigate skills, plans, commands, agents, plugins, `CLAUDE.md`, and settings from a single local UI
 - **MCP servers** — catalog of installed servers plus custom stdio/HTTP servers and env vars, without hand-writing JSON
 - **Usage** — local Claude Code transcripts with estimated spend; tabs Overview, Timeline, Models, Projects, Sessions, Windows, and Prompts
+- **Discover** — search [skills.sh](https://skills.sh) or scan any public GitHub repo for skills, agents, commands, hooks, MCP servers, settings keys, plugins, and convertible Cursor/Copilot rules; preview them rendered, then install to user or project scope
+- **Trust review and install plans** — deterministic static checks on what you are about to install (danger findings block Apply until acknowledged), plus a file / settings / MCP / marketplace plan with conflict choices before anything is written
+- **Installed tab** — installs are tracked with source and commit; check for updates, update, and uninstall with local-edit protection
 - **Backups** — list and restore config file backups
 - **Readable markdown** — GFM rendering with syntax-highlighted code blocks (Shiki) for skills, plans, commands, and agents
 - **Inline editing** — edit markdown files and save back to disk; unsaved-change protection when leaving a dirty page
@@ -75,6 +78,32 @@ Claude Desk gives you a local browser UI for the same config: search it, read it
 
 ![MCP](./docs/images/mcp-v2.png)
 
+## Discover
+
+Discover is the **Discover** item in the top nav. It has three tabs: **skills.sh**, **GitHub repo**, and **Installed**. Everything goes through one install pipeline: pick items, choose a target, review the changes and trust findings, then apply.
+
+**skills.sh** — search the skills.sh directory (results show source repo and install count); open a skill to read its `SKILL.md` rendered before installing.
+
+![Discover: skills.sh search](./docs/images/discover-skillssh-v2.png)
+
+**GitHub repo** — paste `owner/repo` or a GitHub URL (including `/tree/<ref>/<subpath>`). Claude Desk scans the tree and groups what it finds into kind tabs: Skills, Agents, Commands, Hooks, MCP, Settings, Plugins, and Convertible (Cursor rules and Copilot instructions, prompts, chat modes, and agents, converted to skills, commands, or agents with a preview). Filter by name, select items, and install.
+
+![Discover: scanning a GitHub repo](./docs/images/discover-repo-v2.png)
+
+**Preview** — click an item to open a drawer with rendered markdown; hooks show the exact command and bundled scripts, and convertible items offer an original vs converted view.
+
+![Discover: item preview drawer](./docs/images/discover-preview-v2.png)
+
+**Install and trust review** — the install dialog walks through Target (user or a project), Changes (files marked new / overwrite / conflict / identical, settings and MCP changes, marketplace additions), Trust review, and Result. Findings cover things like pipe-to-shell, hidden Unicode, broad permissions, and bundled scripts; if any finding is `danger`, Apply stays disabled until you tick "I've reviewed these findings".
+
+![Discover: trust review with Apply gated](./docs/images/discover-trust-v2.png)
+
+**Installed** — every install is recorded with its source and commit. **Check for updates** compares against the repo, **Update** re-plans and applies, and **Uninstall** removes the files and reverts merged settings and MCP entries. Files you edited after installing are flagged "Modified locally" and need an explicit "Delete anyway".
+
+![Discover: Installed tab](./docs/images/discover-installed-v2.png)
+
+Plugins install natively: Claude Desk adds the marketplace to `extraKnownMarketplaces` and enables the plugin in `enabledPlugins`; Claude Code fetches the plugin itself. MCP servers are registered by running `claude mcp add-json`, so the `claude` CLI must be on your `PATH` for MCP installs. Claude Desk never executes scripts or code from a scanned repo; installed hooks and MCP servers only run later, under Claude Code.
+
 ## Quick start
 
 **Requirements:** Node.js `>= 22.12` (or [Bun](https://bun.sh)). The Claude Code CLI is optional for browsing config.
@@ -85,7 +114,7 @@ npx claude-desk
 bunx claude-desk
 ```
 
-The app binds to localhost, opens your browser, and serves the prebuilt UI. No account, no cloud, no telemetry.
+The app binds to localhost, opens your browser, and serves the prebuilt UI. No account, no cloud, no telemetry. The only outbound traffic is Discover's requests to GitHub and skills.sh, made when you use it (see [Privacy](#privacy--security)).
 
 > [!TIP]
 > Use `--keep-alive` if you want the server to stay up after closing the browser tab (handy while iterating on skills or settings).
@@ -111,19 +140,20 @@ npx claude-desk --keep-alive
 
 ### What you can open
 
-| Area        | Where it lives                                             |
-| ----------- | ---------------------------------------------------------- |
-| Skills      | `skills/`                                                  |
-| Plans       | `plans/`                                                   |
-| Commands    | `commands/`                                                |
-| Agents      | `agents/`                                                  |
-| Plugins     | `plugins/` (and related settings fields)                   |
-| MCP servers | Claude MCP config for the active user/project scope        |
-| CLAUDE.md   | `CLAUDE.md`                                                |
-| Settings    | `settings.json`                                            |
-| Workspace   | Context inspector (global, not scope-switched)             |
-| Usage       | Local Claude Code transcripts (global, not scope-switched) |
-| Backups     | Config file backups (global)                               |
+| Area        | Where it lives                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------- |
+| Skills      | `skills/`                                                                                         |
+| Plans       | `plans/`                                                                                          |
+| Commands    | `commands/`                                                                                       |
+| Agents      | `agents/`                                                                                         |
+| Plugins     | `plugins/` (and related settings fields)                                                          |
+| MCP servers | Claude MCP config for the active user/project scope                                               |
+| CLAUDE.md   | `CLAUDE.md`                                                                                       |
+| Settings    | `settings.json`                                                                                   |
+| Workspace   | Context inspector (global, not scope-switched)                                                    |
+| Usage       | Local Claude Code transcripts (global, not scope-switched)                                        |
+| Backups     | Config file backups (global)                                                                      |
+| Discover    | skills.sh and GitHub (network); install history in `~/.claude/claude-desk/installs.json` (global) |
 
 ## Development
 
@@ -179,12 +209,15 @@ Please keep PRs scoped (one concern per PR when practical), follow existing patt
                               ~/.claude  and  <project>/.claude
 ```
 
-`npx claude-desk` starts the server, opens the URL, and serves the prebuilt SPA from the package. The localhost SPA talks to claude-desk (Hono) on 127.0.0.1; the URL hash carries a local token. The server reads and writes scoped Claude config under `~/.claude` and the selected project’s `.claude`.
+`npx claude-desk` starts the server, opens the URL, and serves the prebuilt SPA from the package. The localhost SPA talks to claude-desk (Hono) on 127.0.0.1; the URL hash carries a local token. The server reads and writes scoped Claude config under `~/.claude` and the selected project’s `.claude`. Discover requests to GitHub and skills.sh are made by this server, not the browser.
 
 ## Privacy & security
 
-- **Local only** — binds to localhost; nothing is exposed to your LAN or the internet by default
+- **Local server** — binds to localhost; nothing is exposed to your LAN or the internet by default
 - **Local bearer token** — API auth uses a token in the URL hash (`#token=...`), not a cloud account
-- **No telemetry / no accounts** — the tool does not phone home
-- **Scoped file access** — only curated paths under `~/.claude` and the active project’s `.claude` are readable/writable through the API
+- **No telemetry / no accounts** — nothing is sent about you or your usage; the only outbound requests are Discover's, to `api.github.com`, `raw.githubusercontent.com`, and `skills.sh`, and only when you use Discover
+- **GitHub token stays server-side** — for rate limits, Discover uses `GITHUB_TOKEN` / `GH_TOKEN` if set, otherwise tries `gh auth token`; the token is never sent to the browser. Without one it uses unauthenticated requests
+- **Installs write files, deliberately** — Discover writes only after you press Apply, into the chosen scope (`~/.claude` or a project's `.claude`, and MCP servers via `claude mcp add-json`) and records the install in `~/.claude/claude-desk/installs.json`; overwritten files are backed up and uninstall refuses to delete locally modified files unless forced
+- **Review before you trust** — installed skills, hooks, and MCP servers run with your Claude Code permissions. The trust review is static pattern matching, not a guarantee; read what you install
+- **Scoped file access** — only curated paths under `~/.claude` and the active project’s `.claude` are readable/writable through the API (MCP installs go through the `claude` CLI)
 - **Validated settings writes** — `settings.json` updates go through the shared Zod schema before disk write
